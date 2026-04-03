@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { Search, Grid3X3, List, Eye, FileText, X, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { LineChart, Line, ResponsiveContainer } from 'recharts';
+import Navbar from '@/components/Navbar';
 
 type DriverStatus = 'Safe' | 'Warning' | 'Critical';
 
@@ -58,8 +59,9 @@ export default function DriversPage() {
   const safeCount = drivers.filter((d) => d.status === 'Safe').length;
 
   return (
-    <div className="pb-20">
-      <main className="container mx-auto px-4 pt-6">
+    <div className="pb-20 min-h-screen bg-background">
+      <Navbar />
+      <main className="container mx-auto px-4 pt-24 lg:pt-28">
         {/* Header */}
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
