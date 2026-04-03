@@ -6,6 +6,8 @@ const navLinks = [
   { label: 'Features', href: '/#features' },
   { label: 'Fleet', href: '/fleet' },
   { label: 'Analytics', href: '/analytics' },
+  { label: 'Over-Speeding', href: '/overspeeding' },
+  { label: 'Rash Driving', href: '/rashdriving' },
   { label: 'Live Demo', href: '/monitor' },
 ];
 

@@ -1,0 +1,60 @@
+# ─── Dependencies ───────────────────────────────────────────────
+node_modules/
+.pnp
+.pnp.js
+
+# ─── Build Output ───────────────────────────────────────────────
+dist/
+dist-ssr/
+build/
+out/
+
+# ─── Vite ───────────────────────────────────────────────────────
+.vite/
+vite.config.ts.timestamp-*
+
+# ─── TypeScript ─────────────────────────────────────────────────
+*.tsbuildinfo
+
+# ─── Environment Variables ──────────────────────────────────────
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.*.local
+
+# ─── Editor & OS ────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+*.pem
+
+# ─── VSCode ─────────────────────────────────────────────────────
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# ─── Logs ───────────────────────────────────────────────────────
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# ─── Testing ────────────────────────────────────────────────────
+coverage/
+playwright-report/
+test-results/
+.playwright/
+
+# ─── Cache ──────────────────────────────────────────────────────
+.cache/
+.eslintcache
+.stylelintcache
+
+# ─── Misc / Scratch ─────────────────────────────────────────────
+debug.js
+tests/debug.spec.ts

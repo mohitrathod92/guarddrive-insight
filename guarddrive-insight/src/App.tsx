@@ -8,6 +8,8 @@ import MonitorPage from "./pages/MonitorPage.tsx";
 import FleetMapPage from "./pages/FleetMapPage.tsx";
 import AnalyticsPage from "./pages/AnalyticsPage.tsx";
 import DriversPage from "./pages/DriversPage.tsx";
+import OverSpeedingPage from "./pages/OverSpeedingPage.tsx";
+import RashDrivingPage from "./pages/RashDrivingPage.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -24,6 +26,8 @@ const App = () => (
           <Route path="/fleet" element={<FleetMapPage />} />
           <Route path="/analytics" element={<AnalyticsPage />} />
           <Route path="/drivers" element={<DriversPage />} />
+          <Route path="/overspeeding" element={<OverSpeedingPage />} />
+          <Route path="/rashdriving" element={<RashDrivingPage />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

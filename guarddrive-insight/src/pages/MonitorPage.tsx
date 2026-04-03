@@ -1,11 +1,15 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import {
-  Users, AlertTriangle, ShieldAlert, TrendingUp, Eye, Sparkles, X, Volume2, Bell, XCircle,
-} from 'lucide-react';
-import {
-  LineChart, Line, XAxis, YAxis, ReferenceLine, ResponsiveContainer, Tooltip,
-} from 'recharts';
+import { Users, AlertTriangle, ShieldAlert, TrendingUp, Eye, Sparkles, X, Volume2, Bell } from 'lucide-react';
+import { LineChart, Line, XAxis, YAxis, ReferenceLine, ResponsiveContainer, Tooltip } from 'recharts';
 import Navbar from '@/components/Navbar';
+
+// MediaPipe globals injected via index.html
+const FaceMesh = (window as any).FaceMesh;
+const Camera = (window as any).Camera;
+const drawConnectors = (window as any).drawConnectors;
+const FACEMESH_TESSELATION = (window as any).FACEMESH_TESSELATION;
+const FACEMESH_LEFT_EYE = (window as any).FACEMESH_LEFT_EYE;
+const FACEMESH_RIGHT_EYE = (window as any).FACEMESH_RIGHT_EYE;
 
 /* ── Types ── */
 interface EarDataPoint { time: number; ear: number }
@@ -84,42 +88,139 @@ export default function MonitorPage() {
   const [speed, setSpeed] = useState(67);
   const [brake, setBrake] = useState(0.3);
   const [steering, setSteering] = useState(12);
+  
   const [showAlert, setShowAlert] = useState(false);
   const [showReport, setShowReport] = useState(false);
+  const [latestEar, setLatestEar] = useState(0.32);
+  const [drowsyFrames, setDrowsyFrames] = useState(0);
+  const [marScore, setMarScore] = useState(0);
+  const [isNodding, setIsNodding] = useState(false);
+  const [isLookingAway, setIsLookingAway] = useState(false);
+
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const tickRef = useRef(0);
 
-  // Simulate EAR data
-  useEffect(() => {
-    const iv = setInterval(() => {
-      tickRef.current += 0.5;
-      const t = tickRef.current;
-      // simulate occasional dips
-      let ear = 0.32 + Math.sin(t * 0.2) * 0.05 + (Math.random() - 0.5) * 0.04;
-      if (t % 30 > 25) ear = 0.18 + Math.random() * 0.05; // drowsy phase
-      ear = Math.max(0.05, Math.min(0.45, ear));
+  const dist = (a: any, b: any, W: number, H: number) => {
+    return Math.hypot((a.x - b.x) * W, (a.y - b.y) * H);
+  }
 
+  const calculateEAR = (landmarks: any[]) => {
+    const W = 640; const H = 480;
+    const L = [362,385,387,263,373,380];
+    const R = [33,160,158,133,153,144];
+    const earEye = (idx: number[]) => {
+      const p = idx.map(i => landmarks[i]);
+      return (dist(p[1],p[5],W,H) + dist(p[2],p[4],W,H)) / (2 * dist(p[0],p[3],W,H));
+    };
+    return (earEye(L) + earEye(R)) / 2;
+  }
+
+  const calculateMAR = (landmarks: any[]) => {
+    const W = 640; const H = 480;
+    const mouth = [61,291,39,181,0,17,269,405];
+    const p = mouth.map(i => landmarks[i]);
+    const v1 = dist(p[2], p[6], W, H);
+    const v2 = dist(p[3], p[7], W, H);
+    const h = dist(p[0], p[1], W, H);
+    return (v1 + v2) / (2 * h);
+  }
+
+  const calculatePose = (landmarks: any[]) => {
+    const nose = landmarks[1];
+    const chin = landmarks[152];
+    const leftEar = landmarks[234];
+    const rightEar = landmarks[454];
+    const forehead = landmarks[10];
+
+    const pitch = (nose.y - forehead.y) / (chin.y - forehead.y);
+    const yaw = nose.x - ((leftEar.x + rightEar.x) / 2);
+    return { nodding: pitch > 0.70, lookingAway: Math.abs(yaw) > 0.08 };
+  }
+
+  const onResults = useCallback((results: any) => {
+    if (!canvasRef.current || !videoRef.current) return;
+    const canvasCtx = canvasRef.current.getContext('2d');
+    if (!canvasCtx) return;
+
+    canvasCtx.save();
+    canvasCtx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+
+    if (results.multiFaceLandmarks && results.multiFaceLandmarks.length > 0) {
+      const landmarks = results.multiFaceLandmarks[0];
+      
+      const ear = calculateEAR(landmarks);
+      const mar = calculateMAR(landmarks);
+      const pose = calculatePose(landmarks);
+
+      setLatestEar(ear);
+      setMarScore(mar);
+      setIsNodding(pose.nodding);
+      setIsLookingAway(pose.lookingAway);
+
+      tickRef.current += 0.1; // Approx 10fps processing update for chart
+      
       setEarData((prev) => {
-        const next = [...prev, { time: t, ear: parseFloat(ear.toFixed(3)) }];
+        const next = [...prev, { time: tickRef.current, ear: parseFloat(ear.toFixed(3)) }];
         return next.length > 120 ? next.slice(-120) : next;
       });
 
-      // fluctuate gauges
-      setSpeed((p) => Math.max(0, Math.min(120, p + (Math.random() - 0.5) * 4)));
-      setBrake((p) => {
-        if (Math.random() < 0.02) return 2.5; // harsh brake spike
-        return Math.max(0, Math.min(10, p * 0.9 + Math.random() * 0.2));
-      });
-      setSteering((p) => Math.max(-90, Math.min(90, p + (Math.random() - 0.5) * 6)));
-    }, 500);
-    return () => clearInterval(iv);
+      if (ear < 0.25) {
+        setDrowsyFrames(prev => prev + 1);
+      } else {
+        setDrowsyFrames(prev => Math.max(0, prev - 2));
+      }
+
+      drawConnectors(canvasCtx, landmarks, FACEMESH_TESSELATION, {color: '#00FF0015', lineWidth: 1});
+      drawConnectors(canvasCtx, landmarks, FACEMESH_LEFT_EYE, {color: '#30FF30', lineWidth: 2});
+      drawConnectors(canvasCtx, landmarks, FACEMESH_RIGHT_EYE, {color: '#30FF30', lineWidth: 2});
+    } else {
+      // Driver missing!
+      setDrowsyFrames(0);
+    }
+    canvasCtx.restore();
   }, []);
 
-  const latestEar = earData.length > 0 ? earData[earData.length - 1].ear : 0.32;
+  useEffect(() => {
+    if (!videoRef.current) return;
+
+    const faceMesh = new FaceMesh({
+      locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`
+    });
+
+    faceMesh.setOptions({
+      maxNumFaces: 1,
+      refineLandmarks: true,
+      minDetectionConfidence: 0.7,
+      minTrackingConfidence: 0.7
+    });
+
+    faceMesh.onResults(onResults);
+
+    const camera = new Camera(videoRef.current, {
+      onFrame: async () => {
+        if (videoRef.current) {
+          await faceMesh.send({ image: videoRef.current });
+        }
+      },
+      width: 640,
+      height: 480
+    });
+
+    camera.start();
+
+    return () => {
+      camera.stop();
+      faceMesh.close();
+    };
+  }, [onResults]);
+
+
   const status: FatigueStatus = useMemo(() => {
-    if (latestEar < 0.2) return 'DANGER';
-    if (latestEar < 0.25) return 'WARNING';
+    if (drowsyFrames > 15 || marScore > 0.6 || isNodding) return 'DANGER';
+    if (drowsyFrames > 5 || latestEar < 0.25 || isLookingAway) return 'WARNING';
     return 'ALERT';
-  }, [latestEar]);
+  }, [drowsyFrames, latestEar, marScore, isNodding, isLookingAway]);
 
   useEffect(() => {
     if (status === 'DANGER') setShowAlert(true);
@@ -129,11 +230,11 @@ export default function MonitorPage() {
   const statusBg = status === 'DANGER' ? 'bg-gd-red/10 border-gd-red danger-border-pulse' : 'border-surface-border';
 
   const eyeStatus = latestEar > 0.25 ? { label: 'Eyes Open', color: 'bg-gd-green/20 text-gd-green' } : { label: 'Eyes Closing', color: 'bg-gd-red/20 text-gd-red' };
-  const headStatus = { label: 'Head Position Normal', color: 'bg-gd-green/20 text-gd-green' };
-  const yawnStatus = { label: 'No Yawning', color: 'bg-gd-green/20 text-gd-green' };
+  const headStatus = isNodding ? { label: 'Head Drooping', color: 'bg-gd-red/20 text-gd-red' } : isLookingAway ? { label: 'Looking Away', color: 'bg-gd-amber/20 text-gd-amber' } : { label: 'Head Position Normal', color: 'bg-gd-green/20 text-gd-green' };
+  const yawnStatus = marScore > 0.6 ? { label: 'Yawning Detected', color: 'bg-gd-red/20 text-gd-red' } : { label: 'No Yawning', color: 'bg-gd-green/20 text-gd-green' };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background pb-12">
       <Navbar showSession />
 
       {/* Alert Banner */}
@@ -153,7 +254,7 @@ export default function MonitorPage() {
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           <KpiCard icon={Users} label="Active Drivers" value={8} accent="text-gd-blue" />
           <KpiCard icon={AlertTriangle} label="Incidents Today" value={3} accent="text-gd-amber" />
-          <KpiCard icon={ShieldAlert} label="Critical Alerts" value={1} accent="text-gd-red" pulse />
+          <KpiCard icon={ShieldAlert} label="Critical Alerts" value={1} accent="text-gd-red" pulse={status === "DANGER"} />
           <KpiCard icon={TrendingUp} label="Avg Safety Score" value={87} accent="text-gd-green" />
         </div>
 
@@ -163,13 +264,28 @@ export default function MonitorPage() {
           <div className="space-y-6 lg:col-span-3">
             {/* Webcam Panel */}
             <div className={`rounded-2xl border bg-surface p-6 ${statusBg}`}>
-              <h3 className="font-heading text-sm font-semibold text-foreground">Driver Camera — Seat 1A</h3>
-              <div className="mt-4 flex aspect-video items-center justify-center rounded-xl bg-background">
-                <div className="text-center">
-                  <span className="mb-2 inline-block h-3 w-3 rounded-full bg-gd-green pulse-green" />
-                  <p className="text-sm text-muted-foreground">Camera feed active</p>
-                </div>
+              <h3 className="font-heading text-sm font-semibold text-foreground flex justify-between items-center">
+                <span>Driver Camera — Seat 1A</span>
+                <span className="text-[10px] bg-gd-green/20 text-gd-green px-2 py-0.5 rounded font-mono font-bold tracking-widest flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-gd-green animate-pulse" /> LIVE
+                </span>
+              </h3>
+              
+              <div className="mt-4 flex aspect-video items-center justify-center rounded-xl bg-black overflow-hidden relative">
+                <video 
+                  ref={videoRef} 
+                  className="w-full h-full object-cover -scale-x-100 hidden" 
+                  autoPlay playsInline muted 
+                />
+                {/* 
+                  Note: the video is drawn to the face mesh under the hood, but FaceMesh doesn't draw the video frame automatically.
+                  Wait, Camera helper from mediapipe usually sends frames, but we should just set video object-fit if we want the actual video stream under the canvas. 
+                  We don't actually need to hide the video feed, we can overlay the canvas.
+                */}
+                <video id="input_video" ref={videoRef} className="absolute inset-0 w-full h-full object-cover -scale-x-100" autoPlay playsInline muted />
+                <canvas ref={canvasRef} className="absolute inset-0 w-full h-full object-cover -scale-x-100 pointer-events-none" width={640} height={480} />
               </div>
+              
               <div className="mt-4 flex flex-wrap gap-2">
                 {[eyeStatus, headStatus, yawnStatus].map((s) => (
                   <span key={s.label} className={`rounded-full px-3 py-1 text-xs font-medium ${s.color}`}>{s.label}</span>
@@ -187,11 +303,11 @@ export default function MonitorPage() {
               <div className="mt-4 h-56">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={earData}>
-                    <XAxis dataKey="time" tick={{ fill: 'hsl(240 5% 55%)', fontSize: 10 }} tickFormatter={(v: number) => `${v.toFixed(0)}s`} />
+                    <XAxis dataKey="time" hide />
                     <YAxis domain={[0, 0.5]} tick={{ fill: 'hsl(240 5% 55%)', fontSize: 10 }} />
                     <ReferenceLine y={0.25} stroke="hsl(1 77% 55%)" strokeDasharray="5 5" label={{ value: 'Drowsy threshold', fill: 'hsl(1 77% 55%)', fontSize: 10, position: 'right' }} />
                     <Tooltip contentStyle={{ background: 'hsl(240 6% 8%)', border: '1px solid hsl(240 6% 20%)', borderRadius: 8, color: 'white' }} />
-                    <Line type="monotone" dataKey="ear" stroke={latestEar < 0.25 ? 'hsl(1 77% 55%)' : 'hsl(142 71% 45%)'} dot={false} strokeWidth={2} />
+                    <Line type="monotone" dataKey="ear" stroke={latestEar < 0.25 ? 'hsl(1 77% 55%)' : 'hsl(142 71% 45%)'} dot={false} strokeWidth={2} isAnimationActive={false} />
                   </LineChart>
                 </ResponsiveContainer>
               </div>
@@ -234,7 +350,6 @@ export default function MonitorPage() {
                   <IncidentRow time="13:45" type="Head Drooping" severity="Low" duration="1.5s" />
                 </tbody>
               </table>
-              <p className="mt-3 text-right text-xs text-gd-blue hover:underline cursor-pointer">View Full Log →</p>
             </div>
           </div>
         </div>
