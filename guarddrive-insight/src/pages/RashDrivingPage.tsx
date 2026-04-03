@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
 import { AlertTriangle, ShieldAlert, Circle, Activity, ShieldCheck } from 'lucide-react';
-import Navbar from '@/components/Navbar';
 
 interface EventLog {
   id: string;
@@ -241,7 +240,6 @@ export default function RashDrivingPage() {
 
   return (
     <div className="min-h-screen bg-background pb-12">
-      <Navbar />
 
       {/* active alerts stack */}
       <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-2 w-full max-w-lg px-4 pointer-events-none">
@@ -256,7 +254,7 @@ export default function RashDrivingPage() {
         ))}
       </div>
 
-      <main className="container mx-auto px-4 pt-32">
+      <main className="container mx-auto px-4 pt-8">
         <div className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
             <h1 className="text-3xl font-heading font-bold text-foreground">Rash Driving Detection</h1>

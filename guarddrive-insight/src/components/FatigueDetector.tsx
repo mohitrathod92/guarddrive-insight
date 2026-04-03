@@ -21,6 +21,7 @@ import {
   Activity,
   Zap,
   Volume2,
+  MapPin,
 } from 'lucide-react';
 import {
   LEFT_EYE_INDICES,
@@ -28,6 +29,7 @@ import {
   calcEAR,
   drawEyeContour,
   playAlertBeep,
+  playEmergencySiren
 } from '@/lib/earUtils';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -38,7 +40,7 @@ const BLINK_MAX       = 14;     // Max closed frames before it's drowsiness
 const CDN_BASE        = 'https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-type EyeStatus = 'open' | 'closed' | 'danger';
+type EyeStatus = 'open' | 'closed' | 'danger' | 'emergency';
 
 export interface Incident {
   id: number;
@@ -84,11 +86,18 @@ export default function FatigueDetector({
   useEffect(() => { onStatusRef.current   = onStatusChange; });
   useEffect(() => { onIncidentRef.current = onIncident; });
 
-  // Frame counters (refs for logic, state for display)
+  // Frame counters and timing (refs for logic, state for display)
   const closedRef   = useRef(0);
   const blinkRef    = useRef(0);
   const alertedRef  = useRef(false);   // guard repeat beep per event
   const incIdRef    = useRef(0);
+  
+  // Escalation tracking refs
+  const emaRef = useRef(0.32);
+  const fatigueStartTimeRef = useRef(0);
+  const lastBeepTimeRef = useRef(0);
+  const lastVoiceTimeRef = useRef(0);
+  const lastSirenTimeRef = useRef(0);
 
   // UI state
   const [mode,         setMode]        = useState<'idle' | 'loading' | 'running' | 'error'>('idle');
@@ -129,18 +138,21 @@ export default function FatigueDetector({
     const earL = calcEAR(lm, LEFT_EYE_INDICES);
     const earR = calcEAR(lm, RIGHT_EYE_INDICES);
     const ear  = (earL + earR) / 2;
-    const earRounded = parseFloat(ear.toFixed(3));
-    setEarDisplay(earRounded);
+    
+    // EMA smoothing to eliminate jitter & false triggers (perfect detection)
+    emaRef.current = (emaRef.current * 0.7) + (ear * 0.3);
+    const smoothedEar = parseFloat(emaRef.current.toFixed(3));
+    setEarDisplay(smoothedEar);
 
     // ── Draw eye landmarks ────────────────────────────────────────────────────
     const eyeColor =
-      ear < EAR_THRESHOLD ? 'hsl(1,77%,55%)' : 'hsl(142,71%,45%)';
+      smoothedEar < EAR_THRESHOLD ? 'hsl(1,77%,55%)' : 'hsl(142,71%,45%)';
 
     drawEyeContour(ctx, lm, LEFT_EYE_INDICES,  eyeColor, 2.5);
     drawEyeContour(ctx, lm, RIGHT_EYE_INDICES, eyeColor, 2.5);
 
     // EAR debug overlay on canvas
-    const earLabel = `EAR ${ear.toFixed(3)}`;
+    const earLabel = `EAR ${smoothedEar.toFixed(3)}`;
     ctx.font         = 'bold 12px monospace';
     const tw         = ctx.measureText(earLabel).width;
     ctx.fillStyle    = 'rgba(0,0,0,0.55)';
@@ -149,30 +161,70 @@ export default function FatigueDetector({
     ctx.fillText(earLabel, 16, 24);
 
     // ── Fatigue / blink logic ─────────────────────────────────────────────────
-    if (ear < EAR_THRESHOLD) {
+    if (smoothedEar < EAR_THRESHOLD) {
+      if (closedRef.current === 0) {
+        fatigueStartTimeRef.current = Date.now();
+      }
+
       closedRef.current++;
       blinkRef.current++;
       setClosedCount(closedRef.current);
 
-      const st: EyeStatus = closedRef.current >= DANGER_FRAMES ? 'danger' : 'closed';
+      const elapsedMs = Date.now() - fatigueStartTimeRef.current;
+
+      let st: EyeStatus = 'closed';
+      if (elapsedMs >= 25000) st = 'emergency';
+      else if (elapsedMs >= 10000 || closedRef.current >= DANGER_FRAMES) st = 'danger';
+      
       setStatus(st);
-      onStatusRef.current?.(st, earRounded);
+      onStatusRef.current?.(st, smoothedEar);
 
-      // Trigger drowsiness alert (once per event)
-      if (closedRef.current >= DANGER_FRAMES && !alertedRef.current) {
-        alertedRef.current = true;
-        playAlertBeep(880, 0.6, 0.3);
-        setShowAlert(true);
+      if (closedRef.current >= DANGER_FRAMES) {
+        // Initial incident log Trigger
+        if (!alertedRef.current) {
+          alertedRef.current = true;
+          setShowAlert(true);
+          const inc: Incident = {
+            id:     ++incIdRef.current,
+            time:   new Date().toLocaleTimeString(),
+            type:   'Drowsiness',
+            ear:    smoothedEar,
+            frames: closedRef.current,
+          };
+          setIncidents((prev) => [inc, ...prev].slice(0, 30));
+          onIncidentRef.current?.(inc);
+        }
 
-        const inc: Incident = {
-          id:     ++incIdRef.current,
-          time:   new Date().toLocaleTimeString(),
-          type:   'Drowsiness',
-          ear:    earRounded,
-          frames: closedRef.current,
-        };
-        setIncidents((prev) => [inc, ...prev].slice(0, 30));
-        onIncidentRef.current?.(inc);
+        // Escalation Logic
+        if (elapsedMs >= 25000) {
+          // 25s: Play continuous emergency siren
+          if (Date.now() - lastSirenTimeRef.current > 800) {
+             playEmergencySiren();
+             lastSirenTimeRef.current = Date.now();
+          }
+        } 
+        else if (elapsedMs >= 10000) {
+          // 10s: Voice Warning (once every 10s)
+          if (Date.now() - lastVoiceTimeRef.current > 10000) {
+            window.speechSynthesis.cancel();
+            const utterance = new SpeechSynthesisUtterance("Warning: Severe fatigue detected. Please wake up immediately!");
+            window.speechSynthesis.speak(utterance);
+            lastVoiceTimeRef.current = Date.now();
+          }
+          // Louder beeps more frequently
+          if (Date.now() - lastBeepTimeRef.current > 500) {
+            playAlertBeep(900, 0.4, 1.0); // max volume
+            lastBeepTimeRef.current = Date.now();
+          }
+        } 
+        else {
+          // Standard: Ramp volume slowly up to 10s
+          if (Date.now() - lastBeepTimeRef.current > 1000) {
+            const vol = 0.2 + Math.min(0.8, (elapsedMs / 10000) * 0.8);
+            playAlertBeep(880, 0.6, vol);
+            lastBeepTimeRef.current = Date.now();
+          }
+        }
       }
     } else {
       // Eyes just re-opened
@@ -185,7 +237,7 @@ export default function FatigueDetector({
           id:   ++incIdRef.current,
           time: new Date().toLocaleTimeString(),
           type: 'Blink',
-          ear:  earRounded,
+          ear:  smoothedEar,
         };
         setIncidents((prev) => [inc, ...prev].slice(0, 30));
         onIncidentRef.current?.(inc);
@@ -194,9 +246,10 @@ export default function FatigueDetector({
       closedRef.current  = 0;
       blinkRef.current   = 0;
       alertedRef.current = false;
+      fatigueStartTimeRef.current = 0; // reset
       setClosedCount(0);
       setStatus('open');
-      onStatusRef.current?.('open', earRounded);
+      onStatusRef.current?.('open', smoothedEar);
     }
   }, []);
 
@@ -245,12 +298,7 @@ export default function FatigueDetector({
   const startCamera = useCallback(async (): Promise<boolean> => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          width:       { ideal: 640 },
-          height:      { ideal: 480 },
-          facingMode:  'user',
-          frameRate:   { ideal: 30, max: 30 },
-        },
+        video: true,
         audio: false,
       });
       streamRef.current = stream;
@@ -305,6 +353,9 @@ export default function FatigueDetector({
     closedRef.current  = 0;
     blinkRef.current   = 0;
     alertedRef.current = false;
+    fatigueStartTimeRef.current = 0;
+    emaRef.current = 0.32;
+    window.speechSynthesis.cancel(); // Stop any voice alerts
 
     setMode('idle');
     setStatus('open');
@@ -325,8 +376,8 @@ export default function FatigueDetector({
   const earPct     = Math.min(100, (earDisplay / 0.45) * 100);
   const closedPct  = Math.min(100, (closedCount / DANGER_FRAMES) * 100);
 
-  const statusLabel = status === 'danger' ? 'DROWSY' : status === 'closed' ? 'Eyes Closed' : 'Eyes Open';
-  const statusColor = status === 'danger'
+  const statusLabel = status === 'emergency' ? 'EMERGENCY' : status === 'danger' ? 'DROWSY' : status === 'closed' ? 'Eyes Closed' : 'Eyes Open';
+  const statusColor = (status === 'danger' || status === 'emergency')
     ? 'text-gd-red'
     : status === 'closed'
     ? 'text-gd-amber'
@@ -338,9 +389,54 @@ export default function FatigueDetector({
     ? 'bg-gd-amber'
     : 'bg-gd-green';
 
-  // ─── Render ───────────────────────────────────────────────────────────────────
   return (
     <div className={`space-y-4 ${className}`}>
+
+      {/* ── Emergency Protocol Overlay ── */}
+      {status === 'emergency' && (
+        <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-gd-red/95 text-white backdrop-blur-xl animate-in fade-in zoom-in duration-300">
+           <AlertTriangle className="h-24 w-24 animate-pulse mb-6 drop-shadow-[0_0_20px_rgba(255,255,255,0.7)]" />
+           <h1 className="text-6xl md:text-8xl font-heading font-black text-center tracking-tighter uppercase mb-2 shadow-black/50 drop-shadow-lg">EMERGENCY<br/>PROTOCOL</h1>
+           <p className="text-xl md:text-3xl font-medium tracking-wide text-center px-4 mb-10">Driver unresponsive for 25+ seconds.</p>
+           
+           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-4xl px-4">
+             {/* Simulated Call View */}
+             <div className="bg-black/40 rounded-3xl p-6 border border-white/20 flex flex-col items-center shadow-2xl backdrop-blur-md">
+                <div className="h-20 w-20 rounded-full bg-white/20 flex items-center justify-center mb-4 border-4 border-white/40 animate-pulse">
+                  <span className="text-3xl">👩🏽</span>
+                </div>
+                <h3 className="text-2xl font-bold font-heading">Priya (Wife)</h3>
+                <p className="text-white/60 font-mono text-sm mt-1">+91 98765 43210</p>
+                <div className="mt-4 flex items-center gap-2 text-gd-green animate-pulse font-semibold">
+                  <span className="h-3 w-3 rounded-full bg-gd-green"></span>
+                  Call Connected — 00:04
+                </div>
+                <p className="text-center text-sm mt-4 text-white/80 max-w-xs">
+                  "Automated Alert: Rajesh Kumar is unresponsive. GPS dispatched."
+                </p>
+             </div>
+
+             {/* Simulated Live Location View */}
+             <div className="bg-black/40 rounded-3xl p-6 border border-white/20 flex flex-col items-center shadow-2xl backdrop-blur-md">
+                <div className="h-full w-full flex flex-col items-center justify-center">
+                  <div className="relative mb-4 mt-2">
+                    <MapPin className="h-16 w-16 text-gd-blue animate-bounce drop-shadow-[0_0_15px_rgba(59,130,246,0.8)]" />
+                    <span className="absolute bottom-0 left-1/2 -translate-x-1/2 h-4 w-12 bg-black/40 rounded-[100%] blur-[2px]"></span>
+                  </div>
+                  <h3 className="text-xl font-bold mb-2 text-center text-gd-blue drop-shadow-md">LIVE LOCATION SHARED</h3>
+                  <div className="font-mono text-xs text-white/70 bg-black/60 px-4 py-2 rounded-lg border border-white/10 text-center w-full max-w-xs">
+                    LAT: 23.022505°N<br/>
+                    LNG: 72.571362°E<br/>
+                    SPEED: 0 km/h (HALTED)
+                  </div>
+                  <p className="mt-4 text-center text-[10px] uppercase tracking-widest text-white/50">
+                    Encrypted link sent to Emergency Contacts & Fleet Manager
+                  </p>
+                </div>
+             </div>
+           </div>
+        </div>
+      )}
 
       {/* ── Danger Alert Banner ─────────────────────────────────────────────── */}
       {showAlert && (

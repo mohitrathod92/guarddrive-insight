@@ -107,23 +107,40 @@ export default function MonitorPage() {
   // KPI counters
   const [criticalAlerts, setCriticalAlerts] = useState(1);
   const [incidentCount,  setIncidentCount]  = useState(3);
+  const [safetyScore,    setSafetyScore]    = useState(100);
+
+  // Fatigue status ref for telemetry sync
+  const latestStatusRef  = useRef('open');
 
   // AI report modal
   const [showReport, setShowReport] = useState(false);
 
-  // ── Simulate vehicle telemetry ─────────────────────────────────────────────
+  // ── Sync vehicle telemetry with fatigue status ─────────────────────────────
   useEffect(() => {
     const iv = setInterval(() => {
-      setSpeed   ((p) => Math.max(0,   Math.min(120, p + (Math.random() - 0.5) * 4)));
-      setBrake   ((p) => Math.random() < 0.02 ? 2.5
-                        : Math.max(0, Math.min(10, p * 0.9 + Math.random() * 0.2)));
-      setSteering((p) => Math.max(-90, Math.min(90, p + (Math.random() - 0.5) * 6)));
+      const isDangerous = latestStatusRef.current === 'danger' || latestStatusRef.current === 'emergency';
+
+      setSpeed((p) => {
+        if (isDangerous) return Math.max(0, p - 6); // Rapidly drop speed if asleep
+        return Math.max(0, Math.min(120, p + (Math.random() - 0.5) * 4));
+      });
+
+      setBrake((p) => {
+        if (isDangerous) return Math.min(10, p + 1.2); // Hard braking
+        return Math.random() < 0.02 ? 2.5 : Math.max(0, Math.min(10, p * 0.9 + Math.random() * 0.2));
+      });
+
+      setSteering((p) => {
+        if (isDangerous) return Math.max(-90, Math.min(90, p + (Math.random() - 0.5) * 40)); // Swerving wildly
+        return Math.max(-90, Math.min(90, p + (Math.random() - 0.5) * 6));
+      });
     }, 500);
     return () => clearInterval(iv);
   }, []);
 
   // ── Callbacks from FatigueDetector ────────────────────────────────────────
-  const handleStatusChange = useCallback((_status: string, ear: number) => {
+  const handleStatusChange = useCallback((status: string, ear: number) => {
+    latestStatusRef.current = status;
     timeRef.current += 0.5;
     setEarData((prev) => {
       const next = [...prev, { time: parseFloat(timeRef.current.toFixed(1)), ear }];
@@ -136,6 +153,9 @@ export default function MonitorPage() {
     if (incident.type === 'Drowsiness') {
       setCriticalAlerts((c) => c + 1);
       setIncidentCount((c) => c + 1);
+      setSafetyScore((s) => Math.max(0, s - 15));
+    } else if (incident.type === 'Blink') {
+      setSafetyScore((s) => Math.max(0, s - 2));
     }
   }, []);
 
@@ -153,7 +173,7 @@ export default function MonitorPage() {
           <KpiCard icon={Users}        label="Active Drivers"  value={8}              accent="text-gd-blue" />
           <KpiCard icon={AlertTriangle} label="Incidents Today" value={incidentCount}  accent="text-gd-amber" />
           <KpiCard icon={ShieldAlert}  label="Critical Alerts" value={criticalAlerts} accent="text-gd-red" pulse={criticalAlerts > 0} />
-          <KpiCard icon={TrendingUp}   label="Avg Safety Score" value={87}            accent="text-gd-green" />
+          <KpiCard icon={TrendingUp}   label="Live Safety Score" value={safetyScore}            accent="text-gd-green" />
         </div>
 
         {/* Main 2-col layout */}

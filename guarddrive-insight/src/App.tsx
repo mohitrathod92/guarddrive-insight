@@ -11,6 +11,21 @@ import DriversPage from "./pages/DriversPage.tsx";
 import OverSpeedingPage from "./pages/OverSpeedingPage.tsx";
 import RashDrivingPage from "./pages/RashDrivingPage.tsx";
 import NotFound from "./pages/NotFound.tsx";
+import Navbar from "@/components/Navbar";
+import { useEffect } from "react";
+import { useDispatch } from "react-redux";
+import { tickFleetMovement } from "./features/fleet/fleetSlice";
+
+const GlobalFleetTick = () => {
+  const dispatch = useDispatch();
+  useEffect(() => {
+    const interval = setInterval(() => {
+      dispatch(tickFleetMovement());
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [dispatch]);
+  return null;
+};
 
 const queryClient = new QueryClient();
 
@@ -20,16 +35,20 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/monitor" element={<MonitorPage />} />
-          <Route path="/fleet" element={<FleetMapPage />} />
-          <Route path="/analytics" element={<AnalyticsPage />} />
-          <Route path="/drivers" element={<DriversPage />} />
-          <Route path="/overspeeding" element={<OverSpeedingPage />} />
-          <Route path="/rashdriving" element={<RashDrivingPage />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+        <GlobalFleetTick />
+        <Navbar />
+        <main className="pt-16 min-h-screen">
+          <Routes>
+            <Route path="/" element={<Index />} />
+            <Route path="/monitor" element={<MonitorPage />} />
+            <Route path="/fleet" element={<FleetMapPage />} />
+            <Route path="/analytics" element={<AnalyticsPage />} />
+            <Route path="/drivers" element={<DriversPage />} />
+            <Route path="/overspeeding" element={<OverSpeedingPage />} />
+            <Route path="/rashdriving" element={<RashDrivingPage />} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </main>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>

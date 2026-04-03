@@ -1,12 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { LineChart, Line, XAxis, YAxis, ReferenceLine, ResponsiveContainer, Tooltip as RechartsTooltip } from 'recharts';
-import { AlertTriangle, ShieldAlert, Activity, Circle, CheckCircle2, Mic2, Keyboard } from 'lucide-react';
-import Navbar from '@/components/Navbar';
+import { AlertTriangle, ShieldAlert, Activity, Circle, CheckCircle2, Mic2, Keyboard, MapPin, Navigation, UserCircle2 } from 'lucide-react';
+import { useDispatch, useSelector } from 'react-redux';
+import { updateDriverSpeed, updateDriverLocation } from '../features/fleet/fleetSlice';
+import { RootState } from '../app/store';
 
-import { Canvas, useFrame } from '@react-three/fiber';
-import { Environment, PerspectiveCamera, Sparkles } from '@react-three/drei';
-import * as THREE from 'three';
-import { Suspense } from 'react';
 
 type Zone = { name: string; limit: number };
 const ZONES: Zone[] = [
@@ -34,135 +32,19 @@ interface Incident {
 
 const synth = window.speechSynthesis;
 
-/* --- 3D Scene Components --- */
 
-function RoadLines({ speed }: { speed: number }) {
-  const lineRef = useRef<THREE.Group>(null);
-  useFrame((state, delta) => {
-    if (lineRef.current) {
-      // Move lines towards camera
-      lineRef.current.position.z += speed * delta * 0.3;
-      if (lineRef.current.position.z > 20) {
-        lineRef.current.position.z -= 20; // reset loop
-      }
-    }
-  });
-
-  return (
-    <group ref={lineRef}>
-      {Array.from({ length: 40 }).map((_, i) => (
-        <mesh key={i} position={[0, -2.9, -40 + i * 4]} rotation={[-Math.PI / 2, 0, 0]}>
-          <planeGeometry args={[0.3, 2]} />
-          <meshStandardMaterial color="#ffffff" emissive="#ffffff" emissiveIntensity={0.5} />
-        </mesh>
-      ))}
-    </group>
-  );
-}
-
-function SteeringWheel({ shake, color }: { shake: number, color: string }) {
-  const wheelRef = useRef<THREE.Group>(null);
-  
-  useFrame((state) => {
-    if (wheelRef.current) {
-      // Vibrate based on shake
-      const vibX = (Math.random() - 0.5) * shake * 0.05;
-      const vibY = (Math.random() - 0.5) * shake * 0.05;
-      wheelRef.current.position.x = vibX;
-      wheelRef.current.position.y = -1.5 + vibY;
-      
-      // Slight base turning based on mouse or auto
-      wheelRef.current.rotation.z = Math.sin(state.clock.elapsedTime) * 0.05;
-    }
-  });
-
-  return (
-    <group ref={wheelRef} position={[0, -1.5, -2]} rotation={[-0.3, 0, 0]}>
-      {/* Outer Ring */}
-      <mesh>
-        <torusGeometry args={[1.8, 0.25, 16, 64]} />
-        <meshStandardMaterial color="#1a1a1a" roughness={0.9} />
-      </mesh>
-      
-      {/* Center Hub */}
-      <mesh position={[0, 0, 0]}>
-        <cylinderGeometry args={[0.5, 0.6, 0.4, 32]} />
-        <meshStandardMaterial color="#111" roughness={0.6} />
-      </mesh>
-      
-      {/* Spokes */}
-      <mesh position={[-0.9, 0, 0]} rotation={[0, 0, Math.PI/2]}>
-        <cylinderGeometry args={[0.1, 0.2, 1.8, 8]} />
-        <meshStandardMaterial color="#333" />
-      </mesh>
-      <mesh position={[0.9, 0, 0]} rotation={[0, 0, Math.PI/2]}>
-        <cylinderGeometry args={[0.1, 0.2, 1.8, 8]} />
-        <meshStandardMaterial color="#333" />
-      </mesh>
-      <mesh position={[0, -0.9, 0]}>
-        <cylinderGeometry args={[0.1, 0.2, 1.8, 8]} />
-        <meshStandardMaterial color="#333" />
-      </mesh>
-
-      {/* Center Logo */}
-      <mesh position={[0, 0.05, 0.21]} rotation={[Math.PI/2, 0, 0]}>
-        <circleGeometry args={[0.25, 32]} />
-        <meshStandardMaterial color={color} emissive={color} emissiveIntensity={0.2} />
-      </mesh>
-    </group>
-  );
-}
-
-function Scene({ speed, status }: { speed: number, status: string }) {
-  const isDanger = status !== 'SAFE';
-  const lightColor = isDanger ? '#ff2222' : '#ffffff';
-  
-  // Calculate shake: heavily increasing if past 80
-  const shake = speed > 60 ? (speed - 60) * 0.1 : 0;
-  
-  return (
-    <>
-      <PerspectiveCamera makeDefault position={[0, 0.5, 0]} fov={75} />
-      
-      <Suspense fallback={null}>
-        <Environment preset="night" />
-      </Suspense>
-      
-      <ambientLight intensity={0.5} />
-      {/* Directional light passing as streetlights */}
-      <directionalLight position={[0, 10, -20]} intensity={1.5} color={lightColor} />
-      <pointLight position={[0, 2, -10]} intensity={isDanger ? 10 : 2} color={lightColor} distance={50} />
-
-      {/* Asphalt Road */}
-      <mesh position={[0, -3, -50]} rotation={[-Math.PI / 2, 0, 0]}>
-        <planeGeometry args={[40, 200]} />
-        <meshStandardMaterial color="#111111" roughness={0.8} />
-      </mesh>
-
-      <RoadLines speed={speed} />
-      
-      {/* Motion Blur Particles to fake high speed realistic movement */}
-      <Sparkles count={speed * 2} scale={20} size={15} speed={speed * 0.1} opacity={0.6} color="#aaa" />
-
-      {/* Dashboard Top */}
-      <mesh position={[0, -2.5, -3]} rotation={[-0.1, 0, 0]}>
-        <boxGeometry args={[12, 2, 4]} />
-        <meshStandardMaterial color="#0a0a0a" roughness={1} />
-      </mesh>
-
-      {/* Dynamic Steering Wheel */}
-      <SteeringWheel shake={shake} color={status === 'SAFE' ? '#10b981' : '#ef4444'} />
-    </>
-  );
-}
-
-/* --- End 3D Scene --- */
 
 export default function OverSpeedingPage() {
-  const [driverName, setDriverName] = useState<string>("Raju");
+  const dispatch = useDispatch();
+  const fleetDrivers = useSelector((state: RootState) => state.fleet.drivers);
+  
+  const [selectedDriverId, setSelectedDriverId] = useState<number>(1);
+  const selectedDriver = fleetDrivers.find(d => d.id === selectedDriverId) || fleetDrivers[0];
+  const driverName = selectedDriver.name;
+
   const [langMode, setLangMode] = useState<"BOTH" | "EN">("BOTH");
   
-  const [speed, setSpeed] = useState<number>(45);
+  const [speed, setSpeed] = useState<number>(selectedDriver.speed || 45);
   const [activeZone, setActiveZone] = useState<Zone>(ZONES[2]); // Highway 60
   const [isSimulating, setIsSimulating] = useState<boolean>(true);
   const [speedHistory, setSpeedHistory] = useState<SpeedData[]>([]);
@@ -175,6 +57,9 @@ export default function OverSpeedingPage() {
   const violationStartTimeRef = useRef<number | null>(null);
   const peakSpeedRef = useRef<number>(0);
   const [violationDuration, setViolationDuration] = useState<number>(0);
+
+  const [useRealGps, setUseRealGps] = useState<boolean>(false);
+  const [gpsError, setGpsError] = useState<string | null>(null);
 
   // Tracking spoken events
   const lastSpokenTimeRef = useRef<{ [key: string]: number }>({});
@@ -225,6 +110,15 @@ export default function OverSpeedingPage() {
   };
 
   const status = getStatus(speed, activeZone.limit);
+
+  // Sync with Global Redux State
+  useEffect(() => {
+    dispatch(updateDriverSpeed({
+      id: selectedDriverId, 
+      speed: Math.round(speed),
+      status: status === 'SAFE' ? 'Safe' : status === 'WARNING' ? 'Warning' : 'Critical'
+    }));
+  }, [speed, status, selectedDriverId, dispatch]);
 
   const [continuousAlarm, setContinuousAlarm] = useState(false);
   const timeAbove80Ref = useRef(0);
@@ -366,12 +260,43 @@ export default function OverSpeedingPage() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [useRealGps]);
+
+  // Real GPS Logic
+  useEffect(() => {
+    let watchId: number;
+    if (useRealGps) {
+      setIsSimulating(false); // Disable auto-simulation
+      if (!navigator.geolocation) {
+        setGpsError("Geolocation is not supported by your browser.");
+        return;
+      }
+      setGpsError(null);
+      watchId = navigator.geolocation.watchPosition(
+        (position) => {
+          const coords = position.coords;
+          // Speed comes in meters/second, convert to km/h
+          // If null (not moving or no hardware support for speed), fallback to manual/current
+          if (coords.speed !== null) {
+            setSpeed(Math.round(coords.speed * 3.6));
+          }
+          dispatch(updateDriverLocation({
+             id: selectedDriverId, lat: coords.latitude, lng: coords.longitude
+          }));
+        },
+        (err) => setGpsError(err.message),
+        { enableHighAccuracy: true, maximumAge: 10000, timeout: 5000 }
+      );
+    }
+    return () => {
+      if (watchId !== undefined) navigator.geolocation.clearWatch(watchId);
+    };
+  }, [useRealGps, dispatch]);
 
   // Simulation Logic
   useEffect(() => {
     let interval: NodeJS.Timeout;
-    if (isSimulating) {
+    if (isSimulating && !useRealGps) {
       interval = setInterval(() => {
         const t = simulationTimeRef.current;
         simulationTimeRef.current += 1;
@@ -479,7 +404,6 @@ export default function OverSpeedingPage() {
 
   return (
     <div className="min-h-screen bg-background pb-12">
-      <Navbar />
       
       {/* Blinking Red Overlay if Speeding */}
       {status !== 'SAFE' && (
@@ -503,7 +427,7 @@ export default function OverSpeedingPage() {
         </div>
       )}
 
-      <main className="container mx-auto px-4 pt-32">
+      <main className="container mx-auto px-4 pt-8">
         <div className="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
             <h1 className="text-3xl font-heading font-bold text-foreground">Over-Speeding Detection</h1>
@@ -511,15 +435,23 @@ export default function OverSpeedingPage() {
           </div>
           
           {/* Driver Config UI */}
-          <div className="flex flex-wrap items-center gap-4 bg-surface px-4 py-2 rounded-xl border border-border">
+          <div className="flex flex-wrap items-center gap-4 bg-surface px-4 py-2 rounded-xl border border-border shadow-sm">
             <div className="flex items-center gap-2">
-              <label className="text-sm font-semibold text-muted-foreground">Driver:</label>
-              <input 
-                type="text" 
-                value={driverName} 
-                onChange={e => setDriverName(e.target.value)}
-                className="bg-background border border-border rounded px-2 py-1 text-sm text-foreground w-24 focus:outline-none focus:border-primary"
-              />
+              <label className="text-sm text-muted-foreground flex items-center gap-1.5"><UserCircle2 size={16} /> Fleet Target:</label>
+              <select 
+                value={selectedDriverId} 
+                onChange={e => {
+                  const id = Number(e.target.value);
+                  setSelectedDriverId(id);
+                  const d = fleetDrivers.find(d => d.id === id);
+                  if (d) setSpeed(d.speed);
+                }}
+                className="bg-background border border-border rounded px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-gd-blue"
+              >
+                {fleetDrivers.map((d) => (
+                   <option key={d.id} value={d.id}>{d.name} ({d.routeNum})</option>
+                ))}
+              </select>
             </div>
             <div className="w-px h-6 bg-border" />
             <div className="flex items-center gap-2">
@@ -542,18 +474,30 @@ export default function OverSpeedingPage() {
               setIsSimulating(!isSimulating);
               if (!isSimulating) simulationTimeRef.current = 0;
             }}
+            disabled={useRealGps}
             className={`px-4 py-2 rounded-full text-sm font-semibold transition-colors ${
               isSimulating ? 'bg-gd-blue/20 text-gd-blue' : 'bg-surface border border-border text-foreground hover:bg-muted'
-            }`}
+            } ${useRealGps ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
-            {isSimulating ? 'Stop Simulation' : 'Start Auto-Simulation'}
+            {isSimulating ? 'Stop Auto-Sim' : 'Start Auto-Sim'}
           </button>
           
-          {!isSimulating && (
+          <button
+            onClick={() => setUseRealGps(!useRealGps)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold transition-colors ${
+              useRealGps ? 'bg-gd-green/20 text-gd-green border border-gd-green/50 pulse-green' : 'bg-surface border border-border text-foreground hover:bg-muted'
+            }`}
+          >
+            <MapPin size={16} /> {useRealGps ? 'Real GPS Active' : 'Use Real GPS Tracking'}
+          </button>
+
+          {!isSimulating && !useRealGps && (
             <div className="text-sm text-muted-foreground px-3 py-1 flex items-center gap-1.5 border border-border rounded-full bg-surface">
               <Keyboard size={14} /> Press <kbd className="font-mono bg-background px-1 rounded mx-1">W</kbd> to speed up, <kbd className="font-mono bg-background px-1 rounded mx-1">S</kbd> to slow down
             </div>
           )}
+          
+          {gpsError && <span className="text-xs text-gd-red font-medium flex items-center gap-1"><AlertTriangle size={14}/> {gpsError}</span>}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -622,28 +566,39 @@ export default function OverSpeedingPage() {
             </div>
           </div>
 
-          {/* RIGHT COLUMN: FPP Simulator, Chart & Controls */}
+          {/* RIGHT COLUMN: Chart & Controls */}
           <div className="col-span-1 lg:col-span-2 space-y-6">
-            
-            {/* FPP BUS VIEW SIMULATOR */}
-            <div className={`bg-black border ${status === 'SAFE' ? 'border-surface-border' : 'border-gd-red'} rounded-2xl overflow-hidden relative h-64 shadow-inner`}>
-              <div className="absolute top-0 left-0 w-full mb-2 bg-black/60 p-2 z-20 flex justify-between items-center backdrop-blur-sm border-b border-white/10">
-                <span className="text-xs font-bold text-white uppercase tracking-widest flex items-center gap-2">
-                  <Activity size={14} className={status === 'SAFE' ? 'text-gd-green' : 'text-gd-red'} /> FRONT CAMERA (FPP 3D REALISTIC)
-                </span>
-                {continuousAlarm && (
-                  <span className="text-[10px] bg-gd-red text-white px-2 py-0.5 rounded animate-pulse font-bold">1 MINUTE OVER 80 ALARM ACTIVE</span>
-                )}
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Telemetry Metrics */}
+              <div className="bg-surface border border-surface-border rounded-2xl p-6">
+                <h3 className="font-heading text-sm text-muted-foreground mb-4 uppercase tracking-wider flex items-center gap-2">
+                  <Navigation size={16} /> Driver Telemetry
+                </h3>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between p-3 bg-background/50 rounded-lg border border-border">
+                    <span className="text-sm text-muted-foreground">Current Rate</span>
+                    <span className="font-mono font-semibold text-foreground">{speed} km/h</span>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-background/50 rounded-lg border border-border">
+                    <span className="text-sm text-muted-foreground">Violation Delta</span>
+                    <span className={`font-mono font-semibold ${overAmount > 0 ? 'text-gd-red' : 'text-gd-green'}`}>
+                      {overAmount > 0 ? '+' : ''}{overAmount} km/h
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-background/50 rounded-lg border border-border">
+                    <span className="text-sm text-muted-foreground">Route Status</span>
+                    <span className={`text-[10px] uppercase font-bold px-2 py-1 rounded
+                                ${status === 'CRITICAL' ? 'bg-gd-red/20 text-gd-red' : 
+                                  status === 'HIGH ALERT' ? 'bg-gd-red/10 text-gd-red' : 
+                                  status === 'WARNING' ? 'bg-gd-amber/20 text-gd-amber' : 'bg-gd-green/20 text-gd-green'}`}>
+                      {status}
+                    </span>
+                  </div>
+                </div>
               </div>
 
-              {/* React Three Fiber Canvas replacing old CSS approach */}
-              <div className="absolute inset-0">
-                <Canvas>
-                  <ambientLight intensity={0.1} />
-                  <Scene speed={speed} status={status} />
-                </Canvas>
-              </div>
-            </div>
+
 
             <div className="bg-surface border border-surface-border rounded-2xl p-6">
               <div className="flex justify-between items-center mb-4">
@@ -684,12 +639,14 @@ export default function OverSpeedingPage() {
                     type="range" 
                     min="0" max="140" 
                     value={speed}
+                    disabled={useRealGps}
                     onChange={(e) => {
                       setSpeed(parseInt(e.target.value));
                       setIsSimulating(false);
                     }}
-                    className="w-full accent-gd-blue"
+                    className={`w-full accent-gd-blue ${useRealGps ? 'opacity-50 cursor-not-allowed' : ''}`}
                   />
+                  {useRealGps && <p className="text-[10px] text-gd-green mt-1">Controlled by Real-time GPS device sensors.</p>}
                 </div>
 
                 <div>

@@ -89,3 +89,35 @@ export function playAlertBeep(frequency = 880, duration = 0.5, volume = 0.25) {
     /* silently ignore if audio is blocked */
   }
 }
+
+/**
+ * Play a loud emergency siren using Web Audio API.
+ */
+export function playEmergencySiren() {
+  try {
+    if (!_audioCtx) _audioCtx = new AudioContext();
+    if (_audioCtx.state === 'suspended') _audioCtx.resume();
+
+    const osc = _audioCtx.createOscillator();
+    const gain = _audioCtx.createGain();
+
+    osc.connect(gain);
+    gain.connect(_audioCtx.destination);
+
+    // Sirens effect
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(600, _audioCtx.currentTime);
+    osc.frequency.linearRampToValueAtTime(1200, _audioCtx.currentTime + 0.4);
+    osc.frequency.linearRampToValueAtTime(600, _audioCtx.currentTime + 0.8);
+    
+    gain.gain.setValueAtTime(0, _audioCtx.currentTime);
+    gain.gain.linearRampToValueAtTime(1, _audioCtx.currentTime + 0.1);
+    gain.gain.setValueAtTime(1, _audioCtx.currentTime + 0.7);
+    gain.gain.exponentialRampToValueAtTime(0.01, _audioCtx.currentTime + 0.8);
+
+    osc.start(_audioCtx.currentTime);
+    osc.stop(_audioCtx.currentTime + 0.8);
+  } catch {
+    /* silently ignore */
+  }
+}

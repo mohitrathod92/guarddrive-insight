@@ -1,9 +1,14 @@
 import { configureStore } from '@reduxjs/toolkit';
+import { guarddriveApi } from '../features/api/apiSlice';
+import fleetReducer from '../features/fleet/fleetSlice';
 
 export const store = configureStore({
   reducer: {
-    // We will add slices here shortly
+    [guarddriveApi.reducerPath]: guarddriveApi.reducer,
+    fleet: fleetReducer,
   },
+  middleware: (getDefaultMiddleware) =>
+    getDefaultMiddleware().concat(guarddriveApi.middleware),
 });
 
 export type RootState = ReturnType<typeof store.getState>;
