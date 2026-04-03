@@ -1,7 +1,5 @@
 import { ArrowRight, Eye, AlertTriangle, MapPin, BarChart2, FileText, ClipboardList } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import Navbar from '@/components/Navbar';
-import Footer from '@/components/Footer';
 import { useScrollAnimation } from '@/hooks/useScrollAnimation';
 
 /* ── Scroll-animated wrapper ── */
@@ -13,7 +11,7 @@ function Section({ children, className = '' }: { children: React.ReactNode; clas
 /* ── HERO ── */
 function Hero() {
   return (
-    <section className="relative flex min-h-screen items-center justify-center overflow-hidden pt-16 grid-bg">
+    <section className="relative flex min-h-[calc(100vh-4rem)] items-center justify-center overflow-hidden grid-bg">
       <div className="container relative z-10 mx-auto px-4 text-center">
         <h1 className="font-heading text-5xl font-bold leading-tight text-foreground md:text-7xl">
           Driver fatigue kills.
@@ -164,14 +162,12 @@ function DemoCTA() {
 /* ── PAGE ── */
 export default function LandingPage() {
   return (
-    <div className="min-h-screen bg-background">
-      <Navbar />
+    <>
       <Hero />
       <StatsStrip />
       <Features />
       <HowItWorks />
       <DemoCTA />
-      <Footer />
-    </div>
+    </>
   );
 }

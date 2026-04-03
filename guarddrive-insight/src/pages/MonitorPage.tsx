@@ -5,7 +5,6 @@ import {
 import {
   LineChart, Line, XAxis, YAxis, ReferenceLine, ResponsiveContainer, Tooltip,
 } from 'recharts';
-import Navbar from '@/components/Navbar';
 
 /* ── Types ── */
 interface EarDataPoint { time: number; ear: number }
@@ -133,8 +132,7 @@ export default function MonitorPage() {
   const yawnStatus = { label: 'No Yawning', color: 'bg-gd-green/20 text-gd-green' };
 
   return (
-    <div className="min-h-screen bg-background">
-      <Navbar showSession />
+    <>
 
       {/* Alert Banner */}
       {showAlert && status === 'DANGER' && (
@@ -148,7 +146,7 @@ export default function MonitorPage() {
         </div>
       )}
 
-      <main className="container mx-auto px-4 pt-20">
+      <main className="container mx-auto px-4 pt-4 pb-20">
         {/* KPI Strip */}
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           <KpiCard icon={Users} label="Active Drivers" value={8} accent="text-gd-blue" />
@@ -263,6 +261,6 @@ export default function MonitorPage() {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
