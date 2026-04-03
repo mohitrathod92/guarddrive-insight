@@ -4,7 +4,6 @@ import {
   AreaChart, Area, Legend, ReferenceLine, CartesianGrid,
 } from 'recharts';
 import { AlertTriangle, TrendingUp, Clock, User, Sparkles, FileDown } from 'lucide-react';
-import Navbar from '@/components/Navbar';
 import { useScrollAnimation } from '@/hooks/useScrollAnimation';
 
 function Section({ children, className = '' }: { children: React.ReactNode; className?: string }) {
@@ -86,9 +85,7 @@ export default function AnalyticsPage() {
   const currentDate = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 
   return (
-    <div className="min-h-screen bg-background">
-      <Navbar showSession />
-      <main className="container mx-auto px-4 pt-20 pb-20">
+    <main className="container mx-auto px-4 pt-6 pb-20">
         {/* Heading */}
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
@@ -277,7 +274,6 @@ export default function AnalyticsPage() {
             )}
           </div>
         </Section>
-      </main>
-    </div>
+    </main>
   );
 }
