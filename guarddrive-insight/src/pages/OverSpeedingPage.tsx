@@ -32,8 +32,6 @@ interface Incident {
 
 const synth = window.speechSynthesis;
 
-
-
 export default function OverSpeedingPage() {
   const dispatch = useDispatch();
   const fleetDrivers = useSelector((state: RootState) => state.fleet.drivers);
@@ -124,6 +122,14 @@ export default function OverSpeedingPage() {
   const timeAbove80Ref = useRef(0);
   const wasSpeedingRef = useRef(false);
 
+  // Cleanup effect when the page unmounts
+  useEffect(() => {
+    return () => {
+      synth.cancel();
+      setContinuousAlarm(false);
+    };
+  }, []);
+
   // Audio handling for continuous alarm
   useEffect(() => {
     let audioCtx: AudioContext;
@@ -145,8 +151,10 @@ export default function OverSpeedingPage() {
 
         // Pulsing volume
         interval = setInterval(() => {
-          gain.gain.setValueAtTime(1, audioCtx.currentTime);
-          gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
+          if (audioCtx.state === 'running') {
+            gain.gain.setValueAtTime(1, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
+          }
         }, 400); // Pulse every 400ms
 
       } catch(e) {
@@ -155,8 +163,12 @@ export default function OverSpeedingPage() {
     }
 
     return () => {
-      if (osc) osc.stop();
-      if (audioCtx) audioCtx.close();
+      if (osc) {
+        try { osc.stop(); } catch(e){}
+      }
+      if (audioCtx && audioCtx.state !== 'closed') {
+        audioCtx.close();
+      }
       if (interval) clearInterval(interval);
     };
   }, [continuousAlarm]);
@@ -171,8 +183,6 @@ export default function OverSpeedingPage() {
     if (speed > 80) {
       if (!continuousAlarm) {
         timeAbove80Ref.current += 1; // Evaluated roughly once per second via speed change updates...
-        // Wait, speed might not update exactly every second if manual. 
-        // Actually, best to handle the timer inside the simulation/interval loop, or a separate 1s interval.
       }
     }
 
@@ -621,6 +631,7 @@ export default function OverSpeedingPage() {
                   </LineChart>
                 </ResponsiveContainer>
               </div>
+            </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

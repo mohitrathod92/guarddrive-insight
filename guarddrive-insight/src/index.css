@@ -108,18 +108,46 @@
 /* Leaflet overrides */
 .leaflet-container {
   background: hsl(240 10% 3.9%) !important;
+  font-family: 'DM Sans', sans-serif !important;
 }
 .leaflet-popup-content-wrapper {
   background: hsl(240 6% 8%) !important;
   color: white !important;
   border: 1px solid hsl(240 6% 20%) !important;
   border-radius: 12px !important;
+  padding: 0 !important;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.5) !important;
+}
+.leaflet-popup-content {
+  margin: 0 !important;
+  padding: 0 !important;
 }
 .leaflet-popup-tip {
   background: hsl(240 6% 8%) !important;
 }
 .leaflet-popup-close-button {
-  color: white !important;
+  display: none !important;
+}
+.leaflet-control-attribution {
+  background: hsla(240,10%,4%,0.8) !important;
+  color: hsl(240,5%,45%) !important;
+  font-size: 9px !important;
+}
+.leaflet-control-attribution a {
+  color: hsl(240,5%,55%) !important;
+}
+/* Custom marker */
+.custom-leaflet-marker {
+  background: none !important;
+  border: none !important;
+}
+/* Ping animation for critical markers */
+@keyframes gdping {
+  0% { transform: scale(1); opacity: 0.8; }
+  100% { transform: scale(2.5); opacity: 0; }
+}
+.gd-ping {
+  animation: gdping 1.2s ease-out infinite !important;
 }
 
 /* Critical marker pulse */
