@@ -37,22 +37,22 @@ const synth = window.speechSynthesis;
 export default function OverSpeedingPage() {
   const dispatch = useDispatch();
   const fleetDrivers = useSelector((state: RootState) => state.fleet.drivers);
-  
+
   const [selectedDriverId, setSelectedDriverId] = useState<number>(1);
   const selectedDriver = fleetDrivers.find(d => d.id === selectedDriverId) || fleetDrivers[0];
   const driverName = selectedDriver.name;
 
   const [langMode, setLangMode] = useState<"BOTH" | "EN">("BOTH");
-  
+
   const [speed, setSpeed] = useState<number>(selectedDriver.speed || 45);
   const [activeZone, setActiveZone] = useState<Zone>(ZONES[2]); // Highway 60
   const [isSimulating, setIsSimulating] = useState<boolean>(true);
   const [speedHistory, setSpeedHistory] = useState<SpeedData[]>([]);
   const [incidents, setIncidents] = useState<Incident[]>([]);
-  
+
   const [lastSpokenText, setLastSpokenText] = useState<{ en: string; hi?: string } | null>(null);
   const textClearTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  
+
   const simulationTimeRef = useRef<number>(0);
   const violationStartTimeRef = useRef<number | null>(null);
   const peakSpeedRef = useRef<number>(0);
@@ -105,7 +105,7 @@ export default function OverSpeedingPage() {
     if (currentSpeed > limit * 1.50) return 'CRITICAL';
     if (currentSpeed > limit * 1.25) return 'HIGH ALERT';
     if (currentSpeed > limit * 1.10) return 'WARNING';
-    if (currentSpeed > limit) return 'WARNING'; 
+    if (currentSpeed > limit) return 'WARNING';
     return 'SAFE';
   };
 
@@ -114,7 +114,7 @@ export default function OverSpeedingPage() {
   // Sync with Global Redux State
   useEffect(() => {
     dispatch(updateDriverSpeed({
-      id: selectedDriverId, 
+      id: selectedDriverId,
       speed: Math.round(speed),
       status: status === 'SAFE' ? 'Safe' : status === 'WARNING' ? 'Warning' : 'Critical'
     }));
@@ -138,7 +138,7 @@ export default function OverSpeedingPage() {
         gain = audioCtx.createGain();
         osc.type = 'sawtooth';
         osc.frequency.value = 800; // piercing high pitch
-        
+
         osc.connect(gain);
         gain.connect(audioCtx.destination);
         osc.start();
@@ -149,7 +149,7 @@ export default function OverSpeedingPage() {
           gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
         }, 400); // Pulse every 400ms
 
-      } catch(e) {
+      } catch (e) {
         console.error("Audio API err", e);
       }
     }
@@ -190,7 +190,7 @@ export default function OverSpeedingPage() {
       speakBoth(
         `Thank you ${driverName}. Now you are in a safe zone.`,
         `Dhanyawad ${driverName}. Ab aap safe zone mein hain.`,
-        'SAFE_ZONE', 
+        'SAFE_ZONE',
         0 // Force speak immediately
       );
     }
@@ -222,7 +222,7 @@ export default function OverSpeedingPage() {
       if (speed > 80 && !continuousAlarm) {
         timeAbove80Ref.current += 1;
         if (timeAbove80Ref.current >= 60) {
-           setContinuousAlarm(true);
+          setContinuousAlarm(true);
         }
       }
     }, 1000);
@@ -249,7 +249,7 @@ export default function OverSpeedingPage() {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Ignore if typing in an input
       if ((e.target as HTMLElement).tagName === 'INPUT') return;
-      
+
       if (e.key === 'w' || e.key === 'W') {
         setSpeed((prev) => Math.min(140, prev + 2));
         setIsSimulating(false);
@@ -281,7 +281,7 @@ export default function OverSpeedingPage() {
             setSpeed(Math.round(coords.speed * 3.6));
           }
           dispatch(updateDriverLocation({
-             id: selectedDriverId, lat: coords.latitude, lng: coords.longitude
+            id: selectedDriverId, lat: coords.latitude, lng: coords.longitude
           }));
         },
         (err) => setGpsError(err.message),
@@ -300,7 +300,7 @@ export default function OverSpeedingPage() {
       interval = setInterval(() => {
         const t = simulationTimeRef.current;
         simulationTimeRef.current += 1;
-        
+
         let targetSpeed = 45;
         if (t < 2) {
           targetSpeed = 45;
@@ -320,9 +320,9 @@ export default function OverSpeedingPage() {
             simulationTimeRef.current = 0;
           }
         }
-        
+
         setSpeed(Math.round(targetSpeed));
-        
+
       }, 1000);
     }
     return () => clearInterval(interval);
@@ -334,9 +334,9 @@ export default function OverSpeedingPage() {
       const next = [...prev, { time: new Date().getTime(), speed }];
       return next.slice(-30);
     });
-    
+
     const limit = activeZone.limit;
-    
+
     if (speed > limit) {
       if (violationStartTimeRef.current === null) {
         violationStartTimeRef.current = Date.now();
@@ -351,7 +351,7 @@ export default function OverSpeedingPage() {
         const dur = Math.floor((Date.now() - violationStartTimeRef.current) / 1000);
         const peak = peakSpeedRef.current;
         const peakStatus = getStatus(peak, limit);
-        
+
         if (peakStatus !== 'SAFE') {
           const newIncident: Incident = {
             id: Math.random().toString(36).substr(2, 9),
@@ -396,7 +396,7 @@ export default function OverSpeedingPage() {
   });
 
   // Calculate generic shake intensity for FPP steering
-  const shakeOffset = speed > activeZone.limit 
+  const shakeOffset = speed > activeZone.limit
     ? (Math.random() > 0.5 ? 1 : -1) * (Math.random() * ((speed - activeZone.limit) / 10))
     : 0;
   // Calculate road speed duration for css animation
@@ -404,7 +404,7 @@ export default function OverSpeedingPage() {
 
   return (
     <div className="min-h-screen bg-background pb-12">
-      
+
       {/* Blinking Red Overlay if Speeding */}
       {status !== 'SAFE' && (
         <div className="pointer-events-none fixed inset-0 z-30 bg-gd-red/10 animate-pulse mix-blend-multiply transition-opacity duration-300" />
@@ -433,13 +433,13 @@ export default function OverSpeedingPage() {
             <h1 className="text-3xl font-heading font-bold text-foreground">Over-Speeding Detection</h1>
             <p className="text-muted-foreground mt-1">Real-time velocity monitoring & voice alerts</p>
           </div>
-          
+
           {/* Driver Config UI */}
           <div className="flex flex-wrap items-center gap-4 bg-surface px-4 py-2 rounded-xl border border-border shadow-sm">
             <div className="flex items-center gap-2">
               <label className="text-sm text-muted-foreground flex items-center gap-1.5"><UserCircle2 size={16} /> Fleet Target:</label>
-              <select 
-                value={selectedDriverId} 
+              <select
+                value={selectedDriverId}
                 onChange={e => {
                   const id = Number(e.target.value);
                   setSelectedDriverId(id);
@@ -449,15 +449,15 @@ export default function OverSpeedingPage() {
                 className="bg-background border border-border rounded px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-gd-blue"
               >
                 {fleetDrivers.map((d) => (
-                   <option key={d.id} value={d.id}>{d.name} ({d.routeNum})</option>
+                  <option key={d.id} value={d.id}>{d.name} ({d.routeNum})</option>
                 ))}
               </select>
             </div>
             <div className="w-px h-6 bg-border" />
             <div className="flex items-center gap-2">
               <label className="text-sm font-semibold text-muted-foreground"><Mic2 size={16} /></label>
-              <select 
-                value={langMode} 
+              <select
+                value={langMode}
                 onChange={e => setLangMode(e.target.value as "BOTH" | "EN")}
                 className="bg-background border border-border rounded px-2 py-1 text-sm text-foreground focus:outline-none focus:border-primary"
               >
@@ -475,18 +475,16 @@ export default function OverSpeedingPage() {
               if (!isSimulating) simulationTimeRef.current = 0;
             }}
             disabled={useRealGps}
-            className={`px-4 py-2 rounded-full text-sm font-semibold transition-colors ${
-              isSimulating ? 'bg-gd-blue/20 text-gd-blue' : 'bg-surface border border-border text-foreground hover:bg-muted'
-            } ${useRealGps ? 'opacity-50 cursor-not-allowed' : ''}`}
+            className={`px-4 py-2 rounded-full text-sm font-semibold transition-colors ${isSimulating ? 'bg-gd-blue/20 text-gd-blue' : 'bg-surface border border-border text-foreground hover:bg-muted'
+              } ${useRealGps ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
             {isSimulating ? 'Stop Auto-Sim' : 'Start Auto-Sim'}
           </button>
-          
+
           <button
             onClick={() => setUseRealGps(!useRealGps)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold transition-colors ${
-              useRealGps ? 'bg-gd-green/20 text-gd-green border border-gd-green/50 pulse-green' : 'bg-surface border border-border text-foreground hover:bg-muted'
-            }`}
+            className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold transition-colors ${useRealGps ? 'bg-gd-green/20 text-gd-green border border-gd-green/50 pulse-green' : 'bg-surface border border-border text-foreground hover:bg-muted'
+              }`}
           >
             <MapPin size={16} /> {useRealGps ? 'Real GPS Active' : 'Use Real GPS Tracking'}
           </button>
@@ -496,14 +494,14 @@ export default function OverSpeedingPage() {
               <Keyboard size={14} /> Press <kbd className="font-mono bg-background px-1 rounded mx-1">W</kbd> to speed up, <kbd className="font-mono bg-background px-1 rounded mx-1">S</kbd> to slow down
             </div>
           )}
-          
-          {gpsError && <span className="text-xs text-gd-red font-medium flex items-center gap-1"><AlertTriangle size={14}/> {gpsError}</span>}
+
+          {gpsError && <span className="text-xs text-gd-red font-medium flex items-center gap-1"><AlertTriangle size={14} /> {gpsError}</span>}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Main Status Panel */}
           <div className={`col-span-1 lg:col-span-1 border rounded-2xl p-6 ${statusColors.bg} ${statusColors.border} transition-colors duration-300 relative`}>
-            
+
             <div className="flex justify-between items-start mb-6">
               <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${statusColors.border} ${statusColors.bg}`}>
                 {status === 'SAFE' ? <CheckCircle2 size={14} /> : <AlertTriangle size={14} />}
@@ -523,11 +521,11 @@ export default function OverSpeedingPage() {
                   fill="none" stroke="hsl(240 6% 18%)" strokeWidth={12} strokeLinecap="round" />
                 {angle > 0 && (
                   <path d={`M ${toXY(0).x} ${toXY(0).y} A ${gaugeR} ${gaugeR} 0 ${angle > 180 ? 1 : 0} 1 ${toXY(angle).x} ${toXY(angle).y}`}
-                    fill="none" stroke={status === 'SAFE' ? 'hsl(142 71% 45%)' : status === 'WARNING' ? 'hsl(38 92% 50%)' : 'hsl(1 77% 55%)'} 
-                    strokeWidth={12} strokeLinecap="round" 
+                    fill="none" stroke={status === 'SAFE' ? 'hsl(142 71% 45%)' : status === 'WARNING' ? 'hsl(38 92% 50%)' : 'hsl(1 77% 55%)'}
+                    strokeWidth={12} strokeLinecap="round"
                     className="transition-all duration-300 ease-out" />
                 )}
-                <path d={`M ${toXY((activeZone.limit / maxSpeed) * 180).x} ${toXY((activeZone.limit / maxSpeed) * 180).y} L ${cx} ${cy}`} 
+                <path d={`M ${toXY((activeZone.limit / maxSpeed) * 180).x} ${toXY((activeZone.limit / maxSpeed) * 180).y} L ${cx} ${cy}`}
                   stroke="hsl(1 77% 55%)" strokeWidth="2" strokeDasharray="2 2" className="opacity-50" />
               </svg>
               <div className="absolute bottom-0 left-0 w-full text-center">
@@ -589,9 +587,9 @@ export default function OverSpeedingPage() {
                   <div className="flex items-center justify-between p-3 bg-background/50 rounded-lg border border-border">
                     <span className="text-sm text-muted-foreground">Route Status</span>
                     <span className={`text-[10px] uppercase font-bold px-2 py-1 rounded
-                                ${status === 'CRITICAL' ? 'bg-gd-red/20 text-gd-red' : 
-                                  status === 'HIGH ALERT' ? 'bg-gd-red/10 text-gd-red' : 
-                                  status === 'WARNING' ? 'bg-gd-amber/20 text-gd-amber' : 'bg-gd-green/20 text-gd-green'}`}>
+                                ${status === 'CRITICAL' ? 'bg-gd-red/20 text-gd-red' :
+                        status === 'HIGH ALERT' ? 'bg-gd-red/10 text-gd-red' :
+                          status === 'WARNING' ? 'bg-gd-amber/20 text-gd-amber' : 'bg-gd-green/20 text-gd-green'}`}>
                       {status}
                     </span>
                   </div>
@@ -600,26 +598,27 @@ export default function OverSpeedingPage() {
 
 
 
-            <div className="bg-surface border border-surface-border rounded-2xl p-6">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="font-heading font-semibold flex items-center gap-2">
-                  <Activity size={18} className="text-gd-blue" /> Live Speed Chart (30s)
-                </h3>
-              </div>
-              <div className="h-[200px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={speedHistory} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
-                    <XAxis dataKey="time" hide />
-                    <YAxis domain={[0, 140]} tick={{ fill: 'hsl(240 5% 55%)', fontSize: 10 }} />
-                    <ReferenceLine y={activeZone.limit} stroke="hsl(1 77% 55%)" strokeDasharray="5 5" label={{ value: 'LIMIT', fill: 'hsl(1 77% 55%)', position: 'insideTopLeft' }} />
-                    <RechartsTooltip 
-                      contentStyle={{ background: 'hsl(240 6% 8%)', border: '1px solid hsl(240 6% 20%)', borderRadius: 8 }}
-                      labelFormatter={() => ''}
-                      formatter={(val: number) => [`${val} km/h`, 'Speed']}
-                    />
-                    <Line type="monotone" dataKey="speed" stroke="hsl(217 91% 60%)" strokeWidth={3} dot={false} isAnimationActive={false} />
-                  </LineChart>
-                </ResponsiveContainer>
+              <div className="bg-surface border border-surface-border rounded-2xl p-6">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="font-heading font-semibold flex items-center gap-2">
+                    <Activity size={18} className="text-gd-blue" /> Live Speed Chart (30s)
+                  </h3>
+                </div>
+                <div className="h-[200px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={speedHistory} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
+                      <XAxis dataKey="time" hide />
+                      <YAxis domain={[0, 140]} tick={{ fill: 'hsl(240 5% 55%)', fontSize: 10 }} />
+                      <ReferenceLine y={activeZone.limit} stroke="hsl(1 77% 55%)" strokeDasharray="5 5" label={{ value: 'LIMIT', fill: 'hsl(1 77% 55%)', position: 'insideTopLeft' }} />
+                      <RechartsTooltip
+                        contentStyle={{ background: 'hsl(240 6% 8%)', border: '1px solid hsl(240 6% 20%)', borderRadius: 8 }}
+                        labelFormatter={() => ''}
+                        formatter={(val: number) => [`${val} km/h`, 'Speed']}
+                      />
+                      <Line type="monotone" dataKey="speed" stroke="hsl(217 91% 60%)" strokeWidth={3} dot={false} isAnimationActive={false} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
               </div>
             </div>
 
@@ -629,15 +628,15 @@ export default function OverSpeedingPage() {
                 <h3 className="font-heading font-semibold mb-4 flex justify-between">
                   Simulator Controls
                 </h3>
-                
+
                 <div className="mb-6">
                   <label className="text-sm text-muted-foreground flex justify-between mb-2">
                     <span>Manual Speed Control</span>
                     <span className="font-mono text-foreground">{speed} km/h</span>
                   </label>
-                  <input 
-                    type="range" 
-                    min="0" max="140" 
+                  <input
+                    type="range"
+                    min="0" max="140"
                     value={speed}
                     disabled={useRealGps}
                     onChange={(e) => {
@@ -651,7 +650,7 @@ export default function OverSpeedingPage() {
 
                 <div>
                   <label className="text-sm text-muted-foreground mb-2 block">Road Zone Limit</label>
-                  <select 
+                  <select
                     value={activeZone.limit}
                     onChange={(e) => {
                       const limit = parseInt(e.target.value);
@@ -665,8 +664,8 @@ export default function OverSpeedingPage() {
                     ))}
                   </select>
                 </div>
-                
-                <button 
+
+                <button
                   onClick={() => speakBoth(
                     `${driverName}! You appear tired and are over the speed limit. Pull over safely now!`,
                     `${driverName} bhai! Neend aa rahi hai aur speed bhi zyada hai! Gaadi side mein rok lo abhi!`,
@@ -705,9 +704,9 @@ export default function OverSpeedingPage() {
                             <td className="py-2 text-center text-muted-foreground font-mono">{inc.duration}s</td>
                             <td className="py-2 text-right">
                               <span className={`text-[10px] uppercase font-bold px-1.5 py-0.5 rounded whitespace-nowrap
-                                ${inc.severity === 'CRITICAL' ? 'bg-gd-red/20 text-gd-red' : 
-                                  inc.severity === 'HIGH ALERT' ? 'bg-gd-red/10 text-gd-red' : 
-                                  'bg-gd-amber/20 text-gd-amber'}`}>
+                                ${inc.severity === 'CRITICAL' ? 'bg-gd-red/20 text-gd-red' :
+                                  inc.severity === 'HIGH ALERT' ? 'bg-gd-red/10 text-gd-red' :
+                                    'bg-gd-amber/20 text-gd-amber'}`}>
                                 {inc.severity}
                               </span>
                             </td>
