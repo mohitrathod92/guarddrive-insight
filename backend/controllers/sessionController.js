@@ -1,13 +1,12 @@
-const Session = require('../models/Session');
+const prisma = require('../config/db');
 
 exports.startSession = async (req, res) => {
   try {
-    const session = new Session({
-      userId: req.user.id,
-      startTime: Date.now(),
+    const session = await prisma.session.create({
+      data: {
+        driverId: req.user.id,
+      }
     });
-
-    await session.save();
     res.json(session);
   } catch (err) {
     console.error(err.message);
@@ -18,20 +17,23 @@ exports.startSession = async (req, res) => {
 exports.endSession = async (req, res) => {
   try {
     const { sessionId } = req.body;
-    let session = await Session.findById(sessionId);
+    let session = await prisma.session.findUnique({
+      where: { id: sessionId }
+    });
 
     if (!session) {
       return res.status(404).json({ msg: 'Session not found' });
     }
 
-    if (session.userId.toString() !== req.user.id) {
+    if (session.driverId !== req.user.id) {
       return res.status(401).json({ msg: 'Not authorized' });
     }
 
-    session.endTime = Date.now();
-    session.duration = Math.floor((session.endTime - session.startTime) / 1000); // in seconds
-
-    await session.save();
+    session = await prisma.session.update({
+      where: { id: sessionId },
+      data: { endTime: new Date() }
+    });
+    // Add duration into response if needed based on Date logic
     res.json(session);
   } catch (err) {
     console.error(err.message);
@@ -41,7 +43,10 @@ exports.endSession = async (req, res) => {
 
 exports.getUserSessions = async (req, res) => {
   try {
-    const sessions = await Session.find({ userId: req.user.id }).sort({ startTime: -1 });
+    const sessions = await prisma.session.findMany({
+      where: { driverId: req.user.id },
+      orderBy: { startTime: 'desc' }
+    });
     res.json(sessions);
   } catch (err) {
     console.error(err.message);

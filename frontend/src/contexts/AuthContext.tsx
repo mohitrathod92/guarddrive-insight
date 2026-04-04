@@ -1,19 +1,21 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { useDispatch } from 'react-redux';
 import { setUserAsDriver } from '../features/fleet/fleetSlice';
-import { 
-  User, 
-  onAuthStateChanged, 
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-  signInWithPopup,
-  signOut,
-  updateProfile
-} from 'firebase/auth';
-import { auth, googleProvider } from '@/lib/firebase';
+import { supabase } from '@/lib/supabase';
+import type { User, Session } from '@supabase/supabase-js';
+
+// Define our App's Role types
+export type UserRole = 'ADMIN' | 'DRIVER';
+
+export interface AppUser {
+  id: string;
+  email: string;
+  name: string;
+  role: UserRole;
+}
 
 interface AuthContextType {
-  user: User | null;
+  user: AppUser | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, name: string) => Promise<void>;
@@ -23,37 +25,78 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
+// Hardcoded admin email as per requirements
+const ADMIN_EMAIL = 'umeshtejas2004@gmail.com';
+
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<AppUser | null>(null);
   const [loading, setLoading] = useState(true);
   const dispatch = useDispatch();
 
-  useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (u) => {
-      setUser(u);
-      setLoading(false);
-      if (u) {
-        dispatch(setUserAsDriver({ name: u.displayName || u.email || 'Current User' }));
+  const handleSession = (session: Session | null) => {
+    if (session?.user) {
+      const u = session.user;
+      const role: UserRole = u.email === ADMIN_EMAIL ? 'ADMIN' : 'DRIVER';
+      const name = u.user_metadata?.name || u.email || 'User';
+      
+      const appUser: AppUser = {
+        id: u.id,
+        email: u.email || '',
+        name: name,
+        role: role
+      };
+      
+      setUser(appUser);
+      
+      if (role === 'DRIVER') {
+        dispatch(setUserAsDriver({ name }));
       }
+    } else {
+      setUser(null);
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    // Check active sessions and sets the user
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      handleSession(session);
     });
-    return unsub;
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      handleSession(session);
+    });
+
+    return () => subscription.unsubscribe();
   }, [dispatch]);
 
   const signIn = async (email: string, password: string) => {
-    await signInWithEmailAndPassword(auth, email, password);
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) throw error;
   };
 
   const signUp = async (email: string, password: string, name: string) => {
-    const cred = await createUserWithEmailAndPassword(auth, email, password);
-    await updateProfile(cred.user, { displayName: name });
+    // If someone tries to sign up as admin, we can block it or let it proceed 
+    // and naturally get assigned the ADMIN role due to our logic.
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: { name }
+      }
+    });
+    if (error) throw error;
   };
 
   const signInGoogle = async () => {
-    await signInWithPopup(auth, googleProvider);
+    const { error } = await supabase.auth.signInWithOAuth({ provider: 'google' });
+    if (error) throw error;
   };
 
   const logOut = async () => {
-    await signOut(auth);
+    await supabase.auth.signOut();
   };
 
   return (

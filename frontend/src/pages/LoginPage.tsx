@@ -30,17 +30,15 @@ export default function LoginPage() {
       }
       navigate('/');
     } catch (err: any) {
-      const msg = err?.code ?? '';
-      if (msg.includes('user-not-found') || msg.includes('wrong-password') || msg.includes('invalid-credential')) {
+      const msg = err?.message ?? '';
+      if (msg.includes('Invalid login credentials')) {
         setError('Invalid email or password.');
-      } else if (msg.includes('email-already-in-use')) {
+      } else if (msg.includes('User already registered')) {
         setError('This email is already registered. Please log in.');
-      } else if (msg.includes('weak-password')) {
+      } else if (msg.includes('Password should be at least 6 characters')) {
         setError('Password should be at least 6 characters.');
-      } else if (msg.includes('invalid-api-key') || msg.includes('configuration-not-found')) {
-        setError('Firebase not configured yet. Please add your Firebase config to src/lib/firebase.ts');
       } else {
-        setError(err?.message ?? 'Something went wrong. Please try again.');
+        setError(msg || 'Something went wrong. Please try again.');
       }
     } finally {
       setLoading(false);
@@ -54,11 +52,7 @@ export default function LoginPage() {
       await signInGoogle();
       navigate('/');
     } catch (err: any) {
-      if (err?.code?.includes('invalid-api-key') || err?.code?.includes('configuration-not-found')) {
-        setError('Firebase not configured yet. Please add your Firebase config to src/lib/firebase.ts');
-      } else {
-        setError(err?.message ?? 'Google sign-in failed.');
-      }
+      setError(err?.message ?? 'Google sign-in failed.');
     } finally {
       setLoading(false);
     }
