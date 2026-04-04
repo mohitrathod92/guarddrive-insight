@@ -1,4 +1,6 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { useDispatch } from 'react-redux';
+import { setUserAsDriver } from '../features/fleet/fleetSlice';
 import { 
   User, 
   onAuthStateChanged, 
@@ -24,14 +26,18 @@ const AuthContext = createContext<AuthContextType | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const dispatch = useDispatch();
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => {
       setUser(u);
       setLoading(false);
+      if (u) {
+        dispatch(setUserAsDriver({ name: u.displayName || u.email || 'Current User' }));
+      }
     });
     return unsub;
-  }, []);
+  }, [dispatch]);
 
   const signIn = async (email: string, password: string) => {
     await signInWithEmailAndPassword(auth, email, password);

@@ -412,7 +412,7 @@ export default function FatigueDetector({
                   Call Connected — 00:04
                 </div>
                 <p className="text-center text-sm mt-4 text-white/80 max-w-xs">
-                  "Automated Alert: Rajesh Kumar is unresponsive. GPS dispatched."
+                  "Automated Alert: {driverName} is unresponsive. GPS dispatched."
                 </p>
              </div>
 

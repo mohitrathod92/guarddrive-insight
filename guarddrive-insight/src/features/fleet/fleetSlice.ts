@@ -13,6 +13,9 @@ export interface Driver {
   speed: number;
   fatigue: number;
   lastIncident: string;
+  xAccel?: number;
+  yAccel?: number;
+  zAccel?: number;
 }
 
 interface FleetState {
@@ -49,13 +52,11 @@ export const fleetSlice = createSlice({
     },
     tickFleetMovement: (state) => {
       state.drivers = state.drivers.map(d => {
-        // Only randomly change speed slightly if they are NOT Driver 1 (assuming Driver 1 is our real user)
-        // Or actually we can leave their speed static if we want full manual control for all,
-        // but for simulation feeling, others can jitter. Let's jitter driver 2-8 speed slightly.
-        let newSpeed = d.speed;
-        if (d.id !== 1) {
-             newSpeed = Math.max(30, Math.min(80, d.speed + (Math.random() - 0.5) * 5));
-        }
+        // Driver 1 (Current User) should NOT be simulated. They use real sensors.
+        if (d.id === 1) return d;
+
+        // Jitter speed slightly for simulated drivers
+        let newSpeed = Math.max(30, Math.min(80, d.speed + (Math.random() - 0.5) * 5));
 
         const moveAmount = newSpeed * 0.0000005;
         let newLat = d.lat + (Math.random() - 0.2) * moveAmount;
@@ -70,10 +71,25 @@ export const fleetSlice = createSlice({
             driver.lat = action.payload.lat;
             driver.lng = action.payload.lng;
         }
+    },
+    updateDriverImu: (state, action: PayloadAction<{ id: number; x: number; y: number; z: number }>) => {
+        const driver = state.drivers.find(d => d.id === action.payload.id);
+        if (driver) {
+            driver.xAccel = action.payload.x;
+            driver.yAccel = action.payload.y;
+            driver.zAccel = action.payload.z;
+        }
+    },
+    setUserAsDriver: (state, action: PayloadAction<{ name: string }>) => {
+      const driver = state.drivers.find(d => d.id === 1);
+      if (driver) {
+        driver.name = action.payload.name;
+        // Don't set random coordinates. Let <GlobalRealTimeTracker /> accurately overwrite this when it obtains a real GPS lock.
+      }
     }
   },
 });
 
-export const { updateDriverSpeed, tickFleetMovement, updateDriverLocation } = fleetSlice.actions;
+export const { updateDriverSpeed, tickFleetMovement, updateDriverLocation, updateDriverImu, setUserAsDriver } = fleetSlice.actions;
 
 export default fleetSlice.reducer;

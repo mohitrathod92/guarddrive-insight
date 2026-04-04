@@ -85,7 +85,7 @@ export default function LoginPage() {
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gd-red/10 border border-gd-red/20">
             <Shield className="h-5 w-5 text-gd-red" />
           </div>
-          <span className="font-heading text-xl font-bold text-foreground">GuardDrive</span>
+          <span className="font-heading text-xl font-bold text-foreground">DriveX</span>
         </Link>
 
         {/* Card */}

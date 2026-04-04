@@ -164,7 +164,7 @@ export default function OverSpeedingPage() {
 
     return () => {
       if (osc) {
-        try { osc.stop(); } catch(e){}
+        try { osc.stop(); } catch (e) { }
       }
       if (audioCtx && audioCtx.state !== 'closed') {
         audioCtx.close();
@@ -272,36 +272,13 @@ export default function OverSpeedingPage() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [useRealGps]);
 
-  // Real GPS Logic
+  // Real GPS Sync Logic (fed by GlobalRealTimeTracker to Redux)
   useEffect(() => {
-    let watchId: number;
     if (useRealGps) {
       setIsSimulating(false); // Disable auto-simulation
-      if (!navigator.geolocation) {
-        setGpsError("Geolocation is not supported by your browser.");
-        return;
-      }
-      setGpsError(null);
-      watchId = navigator.geolocation.watchPosition(
-        (position) => {
-          const coords = position.coords;
-          // Speed comes in meters/second, convert to km/h
-          // If null (not moving or no hardware support for speed), fallback to manual/current
-          if (coords.speed !== null) {
-            setSpeed(Math.round(coords.speed * 3.6));
-          }
-          dispatch(updateDriverLocation({
-            id: selectedDriverId, lat: coords.latitude, lng: coords.longitude
-          }));
-        },
-        (err) => setGpsError(err.message),
-        { enableHighAccuracy: true, maximumAge: 10000, timeout: 5000 }
-      );
+      setSpeed(selectedDriver.speed);
     }
-    return () => {
-      if (watchId !== undefined) navigator.geolocation.clearWatch(watchId);
-    };
-  }, [useRealGps, dispatch]);
+  }, [useRealGps, selectedDriver.speed]);
 
   // Simulation Logic
   useEffect(() => {
@@ -423,7 +400,7 @@ export default function OverSpeedingPage() {
       {/* Alert Banners */}
       {status === 'WARNING' && (
         <div className="fixed top-16 left-0 right-0 z-40 bg-gd-amber/20 px-4 py-3 border-b-2 border-gd-amber text-gd-amber text-center font-semibold flex items-center justify-center gap-2">
-          <AlertTriangle size={18} /> Slow down — approaching speed limit
+          <AlertTriangle size={18} /> Slow down â€” approaching speed limit
         </div>
       )}
       {status === 'HIGH ALERT' && (
@@ -433,7 +410,7 @@ export default function OverSpeedingPage() {
       )}
       {status === 'CRITICAL' && (
         <div className="fixed top-16 left-0 right-0 z-40 bg-gd-red/30 px-4 py-3 border-b-4 border-gd-red text-gd-red text-center font-bold flex items-center justify-center gap-2 danger-border-pulse">
-          <ShieldAlert size={20} className="animate-pulse" /> CRITICAL SPEED VIOLATION — REPORTING TO RTO
+          <ShieldAlert size={20} className="animate-pulse" /> CRITICAL SPEED VIOLATION â€” REPORTING TO RTO
         </div>
       )}
 
@@ -631,7 +608,6 @@ export default function OverSpeedingPage() {
                 </div>
               </div>
             </div>
-            </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Simulator Controls */}
@@ -735,3 +711,4 @@ export default function OverSpeedingPage() {
     </div>
   );
 }
+

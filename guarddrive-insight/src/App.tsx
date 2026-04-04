@@ -17,6 +17,7 @@ import Navbar from "@/components/Navbar";
 import { useEffect } from "react";
 import { useDispatch } from "react-redux";
 import { tickFleetMovement } from "./features/fleet/fleetSlice";
+import GlobalRealTimeTracker from "@/components/GlobalRealTimeTracker";
 
 const GlobalFleetTick = () => {
   const dispatch = useDispatch();
@@ -38,6 +39,7 @@ function AppShell() {
   return (
     <>
       <GlobalFleetTick />
+      <GlobalRealTimeTracker />
       {!isLoginPage && <Navbar />}
       <main className={!isLoginPage ? 'pt-16 min-h-screen' : ''}>
         <Routes>

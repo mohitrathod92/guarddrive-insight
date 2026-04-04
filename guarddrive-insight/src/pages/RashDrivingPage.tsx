@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
-import { AlertTriangle, ShieldAlert, Circle, Activity, ShieldCheck } from 'lucide-react';
+import { AlertTriangle, ShieldAlert, Circle, Activity, ShieldCheck, Activity as ActivityIcon } from 'lucide-react';
+import { useSelector } from 'react-redux';
+import { RootState } from '../app/store';
 
 interface EventLog {
   id: string;
@@ -42,10 +44,14 @@ function playCriticalSound() {
 }
 
 export default function RashDrivingPage() {
+  const fleetDrivers = useSelector((state: RootState) => state.fleet.drivers);
+  const selectedDriver = fleetDrivers.find(d => d.id === 1) || fleetDrivers[0];
+
   const [xAccel, setXAccel] = useState<number>(-1);
   const [yAccel, setYAccel] = useState<number>(0);
   const [zAccel, setZAccel] = useState<number>(0);
   
+  const [useRealImu, setUseRealImu] = useState<boolean>(false);
   const [isSimulating, setIsSimulating] = useState<boolean>(true);
   const simulationTimeRef = useRef<number>(0);
   
@@ -128,6 +134,16 @@ export default function RashDrivingPage() {
       }
     }
   }, [xAccel, yAccel, zAccel]);
+
+  // Real IMU logic (from GlobalRealTimeTracker -> Redux)
+  useEffect(() => {
+    if (useRealImu) {
+      setIsSimulating(false);
+      setXAccel(selectedDriver.xAccel || 0);
+      setYAccel(selectedDriver.yAccel || 0);
+      setZAccel(selectedDriver.zAccel || 0);
+    }
+  }, [useRealImu, selectedDriver.xAccel, selectedDriver.yAccel, selectedDriver.zAccel]);
 
   // Simulation loop
   useEffect(() => {
@@ -263,6 +279,18 @@ export default function RashDrivingPage() {
           <div className="flex gap-4">
             <button
               onClick={() => {
+                setUseRealImu(!useRealImu);
+                if (!useRealImu) setIsSimulating(false);
+              }}
+              className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold transition-colors ${
+                useRealImu ? 'bg-gd-green/20 text-gd-green border border-gd-green/50 pulse-green' : 'bg-surface border border-border text-foreground hover:bg-muted'
+              }`}
+            >
+              <ActivityIcon size={16} /> {useRealImu ? 'Real IMU Active' : 'Use Real Device Sensors'}
+            </button>
+            <button
+              disabled={useRealImu}
+              onClick={() => {
                 setIsSimulating(!isSimulating);
                 if (!isSimulating) {
                   simulationTimeRef.current = 0;
@@ -272,7 +300,7 @@ export default function RashDrivingPage() {
               }}
               className={`px-4 py-2 rounded-full text-sm font-semibold transition-colors ${
                 isSimulating ? 'bg-gd-blue/20 text-gd-blue' : 'bg-surface border border-border text-foreground hover:bg-muted'
-              }`}
+              } ${useRealImu ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
               {isSimulating ? 'Stop Auto-Simulation' : 'Restart Simulation'}
             </button>
@@ -355,7 +383,7 @@ export default function RashDrivingPage() {
                        <span>X-Axis (Accel/Brake)</span>
                        <span className="font-mono">{xAccel.toFixed(1)} m/s²</span>
                     </div>
-                    <input type="range" min="-20" max="20" step="0.5" value={xAccel} onChange={e => {setXAccel(parseFloat(e.target.value)); setIsSimulating(false);}} className="w-full accent-gd-blue" />
+                    <input type="range" min="-20" max="20" step="0.5" value={xAccel} disabled={useRealImu} onChange={e => {setXAccel(parseFloat(e.target.value)); setIsSimulating(false);}} className={`w-full accent-gd-blue ${useRealImu ? 'opacity-50' : ''}`} />
                   </div>
                   
                   <div>
@@ -363,7 +391,7 @@ export default function RashDrivingPage() {
                        <span>Y-Axis (Turns)</span>
                        <span className="font-mono">{yAccel.toFixed(1)} m/s²</span>
                     </div>
-                    <input type="range" min="-15" max="15" step="0.5" value={yAccel} onChange={e => {setYAccel(parseFloat(e.target.value)); setIsSimulating(false);}} className="w-full accent-gd-blue" />
+                    <input type="range" min="-15" max="15" step="0.5" value={yAccel} disabled={useRealImu} onChange={e => {setYAccel(parseFloat(e.target.value)); setIsSimulating(false);}} className={`w-full accent-gd-blue ${useRealImu ? 'opacity-50' : ''}`} />
                   </div>
 
                   <div>
@@ -371,7 +399,7 @@ export default function RashDrivingPage() {
                        <span>Z-Axis (Bumps)</span>
                        <span className="font-mono">{zAccel.toFixed(1)} m/s²</span>
                     </div>
-                    <input type="range" min="-5" max="5" step="0.5" value={zAccel} onChange={e => {setZAccel(parseFloat(e.target.value)); setIsSimulating(false);}} className="w-full accent-gd-blue opacity-50" />
+                    <input type="range" min="-5" max="5" step="0.5" value={zAccel} disabled={useRealImu} onChange={e => {setZAccel(parseFloat(e.target.value)); setIsSimulating(false);}} className={`w-full accent-gd-blue opacity-50 ${useRealImu ? 'opacity-20' : ''}`} />
                   </div>
                 </div>
               </div>

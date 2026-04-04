@@ -11,64 +11,77 @@ function Section({ children, className = '' }: { children: React.ReactNode; clas
   return <div ref={ref} className={`fade-in-up ${className}`}>{children}</div>;
 }
 
-/* ── Heatmap data ── */
+/* ── Heatmap data bounds ── */
 const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-const heatmapData: number[][] = [];
-for (let d = 0; d < 7; d++) {
-  const row: number[] = [];
-  for (let h = 0; h < 24; h++) {
-    let base = 0;
-    if (h >= 14 && h <= 17) base = 3 + Math.floor(Math.random() * 4);
-    else if (h >= 22 || h <= 2) base = 2 + Math.floor(Math.random() * 3);
-    else if (h >= 6 && h <= 9) base = Math.floor(Math.random() * 2);
-    else base = Math.floor(Math.random() * 2);
-    row.push(base);
-  }
-  heatmapData.push(row);
-}
 
-function heatColor(v: number) {
+function heatColor(v: number, maxVal: number) {
   if (v === 0) return '#1A1A24';
-  if (v <= 2) return 'hsla(38,92%,50%,0.3)';
-  if (v <= 4) return 'hsla(38,92%,50%,0.7)';
+  const r = v / maxVal;
+  if (r <= 0.3) return 'hsla(38,92%,50%,0.3)';
+  if (r <= 0.6) return 'hsla(38,92%,50%,0.7)';
   return 'hsla(1,77%,55%,0.8)';
 }
 
-/* ── Weekly trend data ── */
+/* ── Incident trend data (Bar Chart) ── */
 const weeklyData = [
-  { day: 'Mon', incidents: 4 }, { day: 'Tue', incidents: 6 }, { day: 'Wed', incidents: 3 },
-  { day: 'Thu', incidents: 2 }, { day: 'Fri', incidents: 5 }, { day: 'Sat', incidents: 1 }, { day: 'Sun', incidents: 3 },
+  { label: 'Mon', incidents: 4 }, { label: 'Tue', incidents: 6 }, { label: 'Wed', incidents: 3 },
+  { label: 'Thu', incidents: 2 }, { label: 'Fri', incidents: 5 }, { label: 'Sat', incidents: 1 }, { label: 'Sun', incidents: 3 },
 ];
 
-/* ── Scatter data ── */
-const scatterData = Array.from({ length: 20 }, () => {
-  const hours = parseFloat((1 + Math.random() * 7).toFixed(1));
-  const incidents = Math.max(0, Math.round(hours * 0.8 + (Math.random() - 0.3) * 3));
-  return { hours, incidents };
-});
+const monthlyData = Array.from({ length: 30 }, (_, i) => ({
+  label: `${i + 1}`, incidents: Math.floor(Math.random() * 8) + 1
+}));
 
-/* ── Driver leaderboard ── */
-const leaderboard = [
-  { name: 'Priya Patel', score: 97, trend: 'up' },
-  { name: 'Rajesh Kumar', score: 94, trend: 'up' },
-  { name: 'Vikram Rao', score: 91, trend: 'neutral' },
-  { name: 'Deepak Joshi', score: 89, trend: 'down' },
-  { name: 'Anita Desai', score: 85, trend: 'up' },
-  { name: 'Amit Shah', score: 71, trend: 'down' },
-  { name: 'Neha Singh', score: 66, trend: 'down' },
-  { name: 'Suresh Mehta', score: 48, trend: 'down' },
-];
+const quarterlyData = Array.from({ length: 12 }, (_, i) => ({
+  label: `Wk ${i + 1}`, incidents: Math.floor(Math.random() * 25) + 5
+}));
+
+/* ── Driver leaderboards ── */
+const leaderboards: Record<string, { name: string, score: number, trend: 'up'|'down'|'neutral' }[]> = {
+  '7 days': [
+    { name: 'Priya Patel', score: 97, trend: 'up' }, { name: 'Rajesh Kumar', score: 94, trend: 'up' },
+    { name: 'Vikram Rao', score: 91, trend: 'neutral' }, { name: 'Deepak Joshi', score: 89, trend: 'down' },
+    { name: 'Anita Desai', score: 85, trend: 'up' }, { name: 'Amit Shah', score: 71, trend: 'down' },
+    { name: 'Neha Singh', score: 66, trend: 'down' }, { name: 'Suresh Mehta', score: 48, trend: 'down' },
+  ],
+  '30 days': [
+    { name: 'Priya Patel', score: 95, trend: 'neutral' }, { name: 'Rajesh Kumar', score: 92, trend: 'up' },
+    { name: 'Deepak Joshi', score: 87, trend: 'neutral' }, { name: 'Vikram Rao', score: 84, trend: 'down' },
+    { name: 'Anita Desai', score: 80, trend: 'down' }, { name: 'Suresh Mehta', score: 63, trend: 'up' },
+    { name: 'Neha Singh', score: 61, trend: 'up' }, { name: 'Amit Shah', score: 55, trend: 'down' },
+  ],
+  '90 days': [
+    { name: 'Priya Patel', score: 96, trend: 'up' }, { name: 'Deepak Joshi', score: 89, trend: 'up' },
+    { name: 'Rajesh Kumar', score: 88, trend: 'down' }, { name: 'Vikram Rao', score: 82, trend: 'down' },
+    { name: 'Anita Desai', score: 79, trend: 'neutral' }, { name: 'Neha Singh', score: 68, trend: 'up' },
+    { name: 'Suresh Mehta', score: 58, trend: 'down' }, { name: 'Amit Shah', score: 45, trend: 'down' },
+  ]
+};
 
 /* ── Area chart data ── */
-const areaData = [
-  { day: 'Mon', eyeClosure: 2, headDroop: 1, rashDriving: 1 },
-  { day: 'Tue', eyeClosure: 3, headDroop: 2, rashDriving: 1 },
-  { day: 'Wed', eyeClosure: 1, headDroop: 1, rashDriving: 1 },
-  { day: 'Thu', eyeClosure: 1, headDroop: 0, rashDriving: 1 },
-  { day: 'Fri', eyeClosure: 3, headDroop: 1, rashDriving: 1 },
-  { day: 'Sat', eyeClosure: 0, headDroop: 1, rashDriving: 0 },
-  { day: 'Sun', eyeClosure: 2, headDroop: 0, rashDriving: 1 },
+const areaData7 = [
+  { label: 'Mon', eyeClosure: 2, headDroop: 1, rashDriving: 1 },
+  { label: 'Tue', eyeClosure: 3, headDroop: 2, rashDriving: 1 },
+  { label: 'Wed', eyeClosure: 1, headDroop: 1, rashDriving: 1 },
+  { label: 'Thu', eyeClosure: 1, headDroop: 0, rashDriving: 1 },
+  { label: 'Fri', eyeClosure: 3, headDroop: 1, rashDriving: 1 },
+  { label: 'Sat', eyeClosure: 0, headDroop: 1, rashDriving: 0 },
+  { label: 'Sun', eyeClosure: 2, headDroop: 0, rashDriving: 1 },
 ];
+
+const areaData30 = Array.from({ length: 30 }, (_, i) => ({
+  label: `${i + 1}`,
+  eyeClosure: Math.floor(Math.random() * 4),
+  headDroop: Math.floor(Math.random() * 3),
+  rashDriving: Math.floor(Math.random() * 2),
+}));
+
+const areaData90 = Array.from({ length: 12 }, (_, i) => ({
+  label: `Wk ${i + 1}`,
+  eyeClosure: Math.floor(Math.random() * 15),
+  headDroop: Math.floor(Math.random() * 8),
+  rashDriving: Math.floor(Math.random() * 5),
+}));
 
 const chartTooltipStyle = { background: 'hsl(240 6% 8%)', border: '1px solid hsl(240 6% 20%)', borderRadius: 8, color: 'white' };
 
@@ -83,6 +96,65 @@ export default function AnalyticsPage() {
   };
 
   const currentDate = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+
+  // Get current active data based on range
+  const currentBarData = range === '7 days' ? weeklyData : range === '30 days' ? monthlyData : quarterlyData;
+  const currentAreaData = range === '7 days' ? areaData7 : range === '30 days' ? areaData30 : areaData90;
+  const currentLeaderboard = leaderboards[range] || leaderboards['7 days'];
+
+  // Dynamic Heatmap
+  const heatmapData = useMemo(() => {
+    const data: number[][] = [];
+    const multiplier = range === '7 days' ? 1 : range === '30 days' ? 4.2 : 12.8;
+    for (let d = 0; d < 7; d++) {
+      const row: number[] = [];
+      for (let h = 0; h < 24; h++) {
+        let base = 0;
+        if (h >= 14 && h <= 17) base = 3 + Math.floor(Math.random() * 4);
+        else if (h >= 22 || h <= 2) base = 2 + Math.floor(Math.random() * 3);
+        else if (h >= 6 && h <= 9) base = Math.floor(Math.random() * 2);
+        else base = Math.floor(Math.random() * 2);
+        row.push(Math.round(base * multiplier));
+      }
+      data.push(row);
+    }
+    return data;
+  }, [range]);
+
+  const heatmapMax = range === '7 days' ? 6 : range === '30 days' ? 26 : 80;
+
+  // Dynamic Scatterchart
+  const scatterData = useMemo(() => {
+    const count = range === '7 days' ? 20 : range === '30 days' ? 65 : 180;
+    return Array.from({ length: count }, () => {
+      const hours = parseFloat((1 + Math.random() * 7).toFixed(1));
+      const incidents = Math.max(0, Math.round(hours * 0.8 + (Math.random() - 0.3) * 3));
+      return { hours, incidents };
+    });
+  }, [range]);
+
+  // Dynamic KPIs
+  const kpis = useMemo(() => {
+    if (range === '30 days') return [
+      { icon: AlertTriangle, label: 'Total Incidents', value: '118', accent: 'text-gd-red' },
+      { icon: TrendingUp, label: 'Avg Safety Score', value: '82/100', accent: 'text-gd-green' },
+      { icon: User, label: 'Most At-Risk Driver', value: 'Amit Shah', accent: 'text-gd-amber' },
+      { icon: Clock, label: 'Peak Fatigue Hour', value: '4:00 PM', accent: 'text-gd-blue' },
+    ];
+    if (range === '90 days') return [
+      { icon: AlertTriangle, label: 'Total Incidents', value: '384', accent: 'text-gd-red' },
+      { icon: TrendingUp, label: 'Avg Safety Score', value: '78/100', accent: 'text-gd-green' },
+      { icon: User, label: 'Most At-Risk Driver', value: 'Amit Shah', accent: 'text-gd-amber' },
+      { icon: Clock, label: 'Peak Fatigue Hour', value: '2:00 PM', accent: 'text-gd-blue' },
+    ];
+    return [
+      { icon: AlertTriangle, label: 'Total Incidents', value: '24', accent: 'text-gd-red' },
+      { icon: TrendingUp, label: 'Avg Safety Score', value: '87/100', accent: 'text-gd-green' },
+      { icon: User, label: 'Most At-Risk Driver', value: 'Suresh Mehta', accent: 'text-gd-amber' },
+      { icon: Clock, label: 'Peak Fatigue Hour', value: '3:00 PM', accent: 'text-gd-blue' },
+    ];
+  }, [range]);
+
 
   return (
     <main className="container mx-auto px-4 pt-6 pb-20">
@@ -102,12 +174,7 @@ export default function AnalyticsPage() {
         {/* KPI Strip */}
         <Section>
           <div className="mt-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
-            {[
-              { icon: AlertTriangle, label: 'Total Incidents', value: '24', accent: 'text-gd-red' },
-              { icon: TrendingUp, label: 'Avg Safety Score', value: '87/100', accent: 'text-gd-green' },
-              { icon: User, label: 'Most At-Risk Driver', value: 'Suresh Mehta', accent: 'text-gd-amber' },
-              { icon: Clock, label: 'Peak Fatigue Hour', value: '3:00 PM', accent: 'text-gd-blue' },
-            ].map((k) => (
+            {kpis.map((k) => (
               <div key={k.label} className="rounded-xl border border-surface-border bg-surface p-5">
                 <div className="flex items-center gap-2"><k.icon className={`h-4 w-4 ${k.accent}`} /><span className="text-xs text-muted-foreground">{k.label}</span></div>
                 <p className="mt-2 font-heading text-xl font-bold text-foreground">{k.value}</p>
@@ -137,7 +204,7 @@ export default function AnalyticsPage() {
                           <div
                             key={hi}
                             className="flex-1 aspect-square rounded-[2px] cursor-pointer transition-transform hover:scale-125"
-                            style={{ backgroundColor: heatColor(v), minWidth: 8 }}
+                            style={{ backgroundColor: heatColor(v, heatmapMax), minWidth: 8 }}
                             onMouseEnter={() => setHoveredCell({ day: days[di], hour: hi, count: v })}
                             onMouseLeave={() => setHoveredCell(null)}
                           />
@@ -159,10 +226,10 @@ export default function AnalyticsPage() {
               <h3 className="font-heading text-sm font-semibold text-foreground">Daily incident trend</h3>
               <div className="mt-4 h-56">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={weeklyData}>
-                    <XAxis dataKey="day" tick={{ fill: 'hsl(240 5% 55%)', fontSize: 11 }} />
+                  <BarChart data={currentBarData}>
+                    <XAxis dataKey="label" tick={{ fill: 'hsl(240 5% 55%)', fontSize: 11 }} />
                     <YAxis tick={{ fill: 'hsl(240 5% 55%)', fontSize: 11 }} />
-                    <Tooltip contentStyle={chartTooltipStyle} />
+                    <Tooltip contentStyle={chartTooltipStyle} cursor={{ fill: 'hsl(240,6%,12%)' }} />
                     <Bar dataKey="incidents" radius={[4, 4, 0, 0]} fill="hsl(38,92%,50%)" />
                   </BarChart>
                 </ResponsiveContainer>
@@ -196,7 +263,7 @@ export default function AnalyticsPage() {
             <div className="rounded-2xl border border-surface-border bg-surface p-6 lg:col-span-2">
               <h3 className="font-heading text-sm font-semibold text-foreground">Driver safety rankings</h3>
               <div className="mt-4 space-y-3">
-                {leaderboard.map((d, i) => (
+                {currentLeaderboard.map((d, i) => (
                   <div key={d.name} className="flex items-center gap-3">
                     <span className="w-5 text-xs text-muted-foreground font-mono">{i + 1}</span>
                     <span className="flex-1 text-sm text-foreground truncate">{d.name}</span>
@@ -206,7 +273,7 @@ export default function AnalyticsPage() {
                     <span className="w-8 text-xs text-foreground font-mono text-right">{d.score}</span>
                     <span className="text-xs">{d.trend === 'up' ? '↑' : d.trend === 'down' ? '↓' : '—'}</span>
                     {i === 0 && <span className="rounded-full bg-gd-green/20 px-2 py-0.5 text-[10px] text-gd-green">Safe</span>}
-                    {i === leaderboard.length - 1 && <span className="rounded-full bg-gd-red/20 px-2 py-0.5 text-[10px] text-gd-red">At Risk</span>}
+                    {i === currentLeaderboard.length - 1 && <span className="rounded-full bg-gd-red/20 px-2 py-0.5 text-[10px] text-gd-red">At Risk</span>}
                   </div>
                 ))}
               </div>
@@ -220,9 +287,9 @@ export default function AnalyticsPage() {
             <h3 className="font-heading text-sm font-semibold text-foreground">Incident breakdown by type</h3>
             <div className="mt-4 h-64">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={areaData}>
+                <AreaChart data={currentAreaData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(240 6% 18%)" />
-                  <XAxis dataKey="day" tick={{ fill: 'hsl(240 5% 55%)', fontSize: 11 }} />
+                  <XAxis dataKey="label" tick={{ fill: 'hsl(240 5% 55%)', fontSize: 11 }} />
                   <YAxis tick={{ fill: 'hsl(240 5% 55%)', fontSize: 11 }} />
                   <Tooltip contentStyle={chartTooltipStyle} />
                   <Legend />
@@ -257,9 +324,9 @@ export default function AnalyticsPage() {
 
             {reportState === 'done' && (
               <div className="mt-6 rounded-xl bg-background p-6 text-sm leading-relaxed text-muted-foreground animate-in fade-in">
-                <p className="font-heading font-semibold text-foreground">Fleet Safety Report — Week of {currentDate}</p>
-                <p className="mt-3"><strong className="text-foreground">Summary:</strong> This week recorded 24 fatigue incidents across 8 drivers, a 12% increase from last week. The most critical window remains 14:00–17:00, accounting for 46% of all incidents.</p>
-                <p className="mt-3"><strong className="text-gd-red">High Risk Driver:</strong> Suresh Mehta (Route 31) recorded 7 incidents this week, all occurring after the 4-hour mark of his shift. Immediate schedule review recommended.</p>
+                <p className="font-heading font-semibold text-foreground">Fleet Safety Report — Last {range}</p>
+                <p className="mt-3"><strong className="text-foreground">Summary:</strong> Over the last {range}, we recorded {kpis[0].value} fatigue incidents across 8 drivers. The most critical window remains {kpis[3].value.split(' ')[0]}–{(parseInt(kpis[3].value)+2)%12||12}:00 {kpis[3].value.split(' ')[1]}, accounting for significant density of total incidents.</p>
+                <p className="mt-3"><strong className="text-gd-red">High Risk Driver:</strong> {kpis[2].value} is identified as the most at-risk driver over this period. Immediate schedule review recommended.</p>
                 <p className="mt-3"><strong className="text-foreground">Recommendations:</strong></p>
                 <ol className="mt-1 list-decimal list-inside space-y-1">
                   <li>Reduce Route 31 and Route 17 shift durations from 6h to 4h</li>

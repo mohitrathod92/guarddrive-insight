@@ -36,7 +36,7 @@ export default function Navbar({ showSession }: NavbarProps) {
       <div className="container mx-auto flex h-16 items-center justify-between px-4">
         <Link to="/" className="flex items-center gap-2">
           <Shield className="h-5 w-5 text-gd-red" />
-          <span className="font-heading text-lg font-bold text-foreground">GuardDrive</span>
+          <span className="font-heading text-lg font-bold text-foreground">DriveX</span>
         </Link>
 
         {/* Desktop nav */}
@@ -47,7 +47,9 @@ export default function Navbar({ showSession }: NavbarProps) {
               to={l.href}
               className="text-sm text-muted-foreground transition-colors hover:text-foreground"
             >
-              {l.label}
+              {l.label === 'Live Demo' && user 
+                ? (user.displayName || user.email?.split('@')[0]) 
+                : l.label}
             </Link>
           ))}
         </div>
@@ -123,7 +125,9 @@ export default function Navbar({ showSession }: NavbarProps) {
               className="block py-3 text-sm text-muted-foreground"
               onClick={() => setMobileOpen(false)}
             >
-              {l.label}
+              {l.label === 'Live Demo' && user 
+                ? (user.displayName || user.email?.split('@')[0]) 
+                : l.label}
             </Link>
           ))}
           {user ? (

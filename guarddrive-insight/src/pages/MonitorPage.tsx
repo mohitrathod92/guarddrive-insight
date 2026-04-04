@@ -2,6 +2,8 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Users, AlertTriangle, ShieldAlert, TrendingUp, Sparkles, X, Bell,
 } from 'lucide-react';
+import { useSelector } from 'react-redux';
+import { RootState } from '../app/store';
 import {
   LineChart, Line, XAxis, YAxis, ReferenceLine, ResponsiveContainer, Tooltip,
 } from 'recharts';
@@ -92,6 +94,11 @@ function IncidentRow({ time, type, severity, duration }: {
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function MonitorPage() {
+  const fleetDrivers = useSelector((state: RootState) => state.fleet.drivers);
+  const selectedDriver = fleetDrivers.find(d => d.id === 1) || fleetDrivers[0];
+  const driverName = selectedDriver.name;
+  const driverInitials = driverName.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2);
+
   // Vehicle telemetry (simulated)
   const [speed,    setSpeed]    = useState(67);
   const [brake,    setBrake]    = useState(0.3);
@@ -194,14 +201,14 @@ export default function MonitorPage() {
               </div>
               <span className="flex items-center gap-1.5 rounded-full border border-gd-blue/30 bg-gd-blue/10 px-3 py-1 text-xs text-gd-blue">
                 <span className="h-1.5 w-1.5 rounded-full bg-gd-blue pulse-green" />
-                Driver: Rajesh Kumar
+                Driver: {driverName}
               </span>
             </div>
 
             {/* ✅ Real FatigueDetector */}
             <FatigueDetector
-              driverName="Rajesh Kumar"
-              route="42"
+              driverName={driverName}
+              route={selectedDriver.route}
               onStatusChange={handleStatusChange}
               onIncident={handleIncident}
             />
@@ -269,11 +276,11 @@ export default function MonitorPage() {
             <div className="rounded-2xl border border-surface-border bg-surface p-6">
               <div className="flex items-center gap-4">
                 <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gd-blue/20 font-heading text-lg font-bold text-gd-blue">
-                  RK
+                  {driverInitials}
                 </div>
                 <div>
-                  <p className="font-heading font-semibold text-foreground">Rajesh Kumar</p>
-                  <p className="text-xs text-muted-foreground">Route 42 — Ahmedabad Central</p>
+                  <p className="font-heading font-semibold text-foreground">{driverName}</p>
+                  <p className="text-xs text-muted-foreground">{selectedDriver.route}</p>
                 </div>
                 <span className="ml-auto rounded-full bg-gd-green/20 px-3 py-1 text-xs font-medium text-gd-green">
                   On Duty
@@ -393,7 +400,7 @@ export default function MonitorPage() {
               </button>
             </div>
             <div className="mt-4 rounded-xl bg-background p-4 text-sm leading-relaxed text-muted-foreground">
-              <p className="font-semibold text-foreground">Driver: Rajesh Kumar — Route 42</p>
+              <p className="font-semibold text-foreground">Driver: {driverName} — {selectedDriver.route}</p>
               <p className="mt-2">
                 Live session has recorded {liveIncidents.filter(i => i.type === 'Drowsiness').length} drowsiness
                 events and {liveIncidents.filter(i => i.type === 'Blink').length} blink events so far in the
